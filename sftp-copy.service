@@ -1,0 +1,30 @@
+[Unit]
+Description=SFTP Copy Service
+After=network.target
+
+[Service]
+Type=oneshot
+User=your-user
+Group=your-group
+WorkingDirectory=/path/to/SftpCopyTool
+ExecStart=/usr/bin/dotnet run -- \
+    --host your-sftp-server.com \
+    --username your-username \
+    --password your-password \
+    --remote-path /remote/path \
+    --local-path /local/path \
+    --recursive
+Environment=DOTNET_ROOT=/usr/share/dotnet
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
+
+# Pour utiliser ce service :
+# 1. Copiez ce fichier vers /etc/systemd/system/sftp-copy.service
+# 2. Modifiez les paramètres selon vos besoins
+# 3. Rechargez systemd : sudo systemctl daemon-reload
+# 4. Activez le service : sudo systemctl enable sftp-copy.service
+# 5. Démarrez le service : sudo systemctl start sftp-copy.service
+# 6. Vérifiez le statut : sudo systemctl status sftp-copy.service

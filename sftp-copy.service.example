@@ -1,0 +1,34 @@
+[Unit]
+Description=SFTP Copy Tool - Automated file transfer from SFTP to local storage
+Documentation=file:///opt/sftpcopy/README.md
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=root
+Group=root
+WorkingDirectory=/opt/sftpcopy
+EnvironmentFile=/etc/sftp-copy/config.env
+
+# Commande d'exécution avec variables d'environnement
+ExecStart=/opt/sftpcopy/SftpCopyTool --host ${SFTP_HOST} --port ${SFTP_PORT} --username ${SFTP_USERNAME} --password ${SFTP_PASSWORD} --remote-path ${REMOTE_PATH} --local-path ${LOCAL_PATH} ${RECURSIVE_MODE}
+
+# Gestion des logs
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=sftp-copy
+
+# Sécurité et limites
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ReadWritePaths=/tmp /var/tmp /opt/sftpcopy ${LOCAL_PATH}
+
+# Politiques de redémarrage
+Restart=no
+TimeoutStartSec=300
+TimeoutStopSec=30
+
+[Install]
+WantedBy=multi-user.target
