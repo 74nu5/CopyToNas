@@ -7,7 +7,8 @@ Outil en ligne de commande pour copier des fichiers et dossiers depuis un serveu
 - 🚀 Copie de fichiers individuels depuis un serveur SFTP
 - 📁 Copie récursive de dossiers et de leurs sous-éléments
 - 🔒 Support des connexions SFTP sécurisées
-- 📋 Logging détaillé avec emojis pour une meilleure lisibilité
+- � **Suivi de progression en temps réel** avec vitesse de téléchargement
+- �📋 Logging détaillé avec emojis pour une meilleure lisibilité
 - ⚡ Gestion d'erreurs robuste
 - 🐧 Optimisé pour Linux avec support systemd
 - 📦 Installation automatisée
@@ -223,21 +224,28 @@ L'application utilise des emojis pour améliorer la lisibilité des logs :
 - ❌ **Erreurs** - Problèmes rencontrés
 - 📂 **Dossiers** - Traitement des répertoires
 - 📄 **Fichiers** - Copie de fichiers individuels
-- ⬇️ **Téléchargement** - Transferts en cours
+- ⬇️ **Téléchargement** - Transferts en cours avec taille
+- 📊 **Progression** - Avancement et vitesse en temps réel
 - 🎉 **Completion** - Fin des opérations avec succès
 
-Exemple de sortie :
+Exemple de sortie avec progression :
 ```
 🔌 Connexion au serveur SFTP exemple.com:22
 ✅ Connexion établie avec succès
-📄 Copie du fichier '/remote/file.txt' vers '/local/destination/'
-⬇️ Téléchargement : /remote/file.txt -> /local/destination/file.txt
-✅ Fichier copié : 2048 octets
+📄 Copie du fichier '/remote/large-file.zip' vers '/local/downloads/'
+⬇️ Téléchargement : /remote/large-file.zip -> /local/downloads/large-file.zip (25.5MB octets)
+📊 Progression : 25.0% (6.4MB/25.5MB) - 3.2MB/s
+📊 Progression : 50.0% (12.8MB/25.5MB) - 2.9MB/s
+📊 Progression : 75.0% (19.1MB/25.5MB) - 3.1MB/s
+📊 Progression : 100.0% (25.5MB/25.5MB) - 3.0MB/s
+✅ Fichier copié : 26738688 octets
 🎉 Copie terminée avec succès
 🔌 Déconnexion du serveur SFTP
 ```
 
-Pour plus de détails, consultez [le guide des emojis](docs/EMOJI_LOGS.md).
+**Guides détaillés :**
+- 📋 [Guide des emojis](docs/EMOJI_LOGS.md)
+- 📊 [Suivi de progression](docs/DOWNLOAD_PROGRESS.md)
 
 ## Service systemd
 

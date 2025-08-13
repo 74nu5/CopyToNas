@@ -94,13 +94,19 @@ public class SftpService
             }
         }
 
-        _logger.LogInformation("⬇️ Téléchargement : {RemoteFile} -> {LocalFile}", remoteFilePath, localFilePath);
+        // Obtenir la taille du fichier pour calculer le pourcentage
+        var remoteFile = client.Get(remoteFilePath);
+        var totalSize = remoteFile.Length;
+        
+        _logger.LogInformation("⬇️ Téléchargement : {RemoteFile} -> {LocalFile} ({Size} octets)", 
+            remoteFilePath, localFilePath, totalSize);
 
         using var fileStream = File.Create(localFilePath);
-        client.DownloadFile(remoteFilePath, fileStream);
+        
+        // Téléchargement avec callback de progression
+        client.DownloadFile(remoteFilePath, fileStream, CreateProgressCallback(totalSize));
 
-        var remoteFile = client.Get(remoteFilePath);
-        _logger.LogInformation("✅ Fichier copié : {Size} octets", remoteFile.Length);
+        _logger.LogInformation("✅ Fichier copié : {Size} octets", totalSize);
     }
 
     private void CopyDirectory(SftpClient client, string remoteDirPath, string localDirPath)
@@ -131,13 +137,71 @@ public class SftpService
             }
             else if (remoteFile.IsRegularFile)
             {
-                _logger.LogInformation("⬇️ Téléchargement : {RemoteFile} -> {LocalFile}", remoteItemPath, localItemPath);
+                // Obtenir la taille du fichier pour calculer le pourcentage
+                var totalSize = remoteFile.Length;
+                
+                _logger.LogInformation("⬇️ Téléchargement : {RemoteFile} -> {LocalFile} ({Size} octets)", 
+                    remoteItemPath, localItemPath, totalSize);
                 
                 using var fileStream = File.Create(localItemPath);
-                client.DownloadFile(remoteItemPath, fileStream);
                 
-                _logger.LogInformation("✅ Fichier copié : {Size} octets", remoteFile.Length);
+                // Téléchargement avec callback de progression
+                client.DownloadFile(remoteItemPath, fileStream, CreateProgressCallback(totalSize));
+                
+                _logger.LogInformation("✅ Fichier copié : {Size} octets", totalSize);
             }
         }
+    }
+
+    private Action<ulong> CreateProgressCallback(long totalSize)
+    {
+        // Variables pour le suivi de progression (closure)
+        long lastReportedBytes = 0;
+        var lastProgressTime = DateTime.Now;
+        
+        return (ulong bytesDownloaded) =>
+        {
+            var now = DateTime.Now;
+            var downloaded = (long)bytesDownloaded;
+            
+            // Mettre à jour la progression toutes les 500ms ou tous les 10% 
+            var timeDiff = now - lastProgressTime;
+            var byteDiff = downloaded - lastReportedBytes;
+            var percentageDiff = totalSize > 0 ? (byteDiff * 100.0 / totalSize) : 0;
+            
+            if (timeDiff.TotalMilliseconds >= 500 || percentageDiff >= 10 || downloaded == totalSize)
+            {
+                if (totalSize > 0)
+                {
+                    var percentage = (downloaded * 100.0 / totalSize);
+                    var speed = byteDiff > 0 && timeDiff.TotalSeconds > 0 ? 
+                        (long)(byteDiff / timeDiff.TotalSeconds) : 0;
+                    
+                    _logger.LogInformation("📊 Progression : {Percentage:F1}% ({Downloaded}/{Total}) - {Speed}/s", 
+                        percentage, 
+                        FormatBytes(downloaded), 
+                        FormatBytes(totalSize),
+                        FormatBytes(speed));
+                }
+                
+                lastReportedBytes = downloaded;
+                lastProgressTime = now;
+            }
+        };
+    }
+
+    private static string FormatBytes(long bytes)
+    {
+        string[] suffixes = { "B", "KB", "MB", "GB", "TB" };
+        int counter = 0;
+        decimal number = bytes;
+        
+        while (Math.Round(number / 1024) >= 1)
+        {
+            number /= 1024;
+            counter++;
+        }
+        
+        return $"{number:n1}{suffixes[counter]}";
     }
 }
