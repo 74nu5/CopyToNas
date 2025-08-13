@@ -17,7 +17,7 @@ LOCAL_PATH="/chemin/local/destination"
 RECURSIVE="--recursive"  # Supprimer cette ligne pour copier seulement un fichier
 
 # Exécution de l'outil
-dotnet run -- \
+dotnet run --project ../src/ -- \
     --host "$SFTP_HOST" \
     --port "$SFTP_PORT" \
     --username "$SFTP_USERNAME" \

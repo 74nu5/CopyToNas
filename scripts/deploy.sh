@@ -189,9 +189,9 @@ log_step "Création de l'exécutable global..."
 ln -sf "$INSTALL_DIR/SftpCopyTool" "$BIN_DIR/$BIN_NAME"
 
 # Copier la configuration si elle n'existe pas
-if [[ ! -f "$CONFIG_DIR/config.env" ]] && [[ -f "./config.env" ]]; then
+if [[ ! -f "$CONFIG_DIR/config.env" ]] && [[ -f "../config/config.env" ]]; then
     log_step "Installation de la configuration par défaut..."
-    cp ./config.env "$CONFIG_DIR/"
+    cp ../config/config.env "$CONFIG_DIR/"
     chmod 600 "$CONFIG_DIR/config.env"
     chown root:root "$CONFIG_DIR/config.env"
 fi

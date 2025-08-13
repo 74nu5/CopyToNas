@@ -67,7 +67,8 @@ fi
 
 # Copier les fichiers du projet
 log_info "Copie des fichiers du projet..."
-cp -r ./* "$INSTALL_DIR/"
+cp -r ../src/* "$INSTALL_DIR/"
+cp -r ../config/* "$CONFIG_DIR/"
 
 # Compiler le projet
 log_info "Compilation du projet..."
@@ -76,12 +77,11 @@ dotnet build -c Release
 
 # Copier le fichier de configuration
 log_info "Configuration du service..."
-cp config.env "$CONFIG_DIR/"
 chmod 600 "$CONFIG_DIR/config.env"
 
 # Installer le service systemd
-if [[ -f "sftp-copy.service" ]]; then
-    cp sftp-copy.service "$SERVICE_FILE"
+if [[ -f "$CONFIG_DIR/sftp-copy.service" ]]; then
+    cp "$CONFIG_DIR/sftp-copy.service" "$SERVICE_FILE"
     
     # Mettre à jour les chemins dans le service
     sed -i "s|WorkingDirectory=.*|WorkingDirectory=$INSTALL_DIR|g" "$SERVICE_FILE"

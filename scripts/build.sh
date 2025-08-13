@@ -118,20 +118,20 @@ echo
 # Nettoyage si demandé
 if [[ "$CLEAN_FIRST" == "true" ]]; then
     log_step "Nettoyage des artefacts de build..."
-    dotnet clean -c "$BUILD_CONFIG"
+    dotnet clean ../src/ -c "$BUILD_CONFIG"
     rm -rf "$PUBLISH_DIR"
 fi
 
 # Restauration des dépendances
 log_step "Restauration des dépendances..."
-dotnet restore
+dotnet restore ../src/
 
 # Compilation
 log_step "Compilation du projet..."
-dotnet build -c "$BUILD_CONFIG" --no-restore
+dotnet build ../src/ -c "$BUILD_CONFIG" --no-restore
 
 # Construction des arguments de publication
-PUBLISH_ARGS="-c $BUILD_CONFIG -o $PUBLISH_DIR --no-build"
+PUBLISH_ARGS="../src/ -c $BUILD_CONFIG -o $PUBLISH_DIR --no-build"
 
 if [[ "$SELF_CONTAINED" == "true" ]]; then
     PUBLISH_ARGS="$PUBLISH_ARGS --self-contained true -r $RUNTIME"

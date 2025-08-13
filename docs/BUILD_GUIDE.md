@@ -4,12 +4,12 @@
 
 ### 1. Compilation de développement
 ```bash
-dotnet build
+dotnet build src/
 ```
 
 ### 2. Compilation Release
 ```bash
-dotnet build -c Release
+dotnet build src/ -c Release
 ```
 
 ## Options de publication

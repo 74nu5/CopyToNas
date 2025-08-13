@@ -7,7 +7,7 @@ Outil en ligne de commande pour copier des fichiers et dossiers depuis un serveu
 - 🚀 Copie de fichiers individuels depuis un serveur SFTP
 - 📁 Copie récursive de dossiers et de leurs sous-éléments
 - 🔒 Support des connexions SFTP sécurisées
-- 📋 Logging détaillé des opérations
+- 📋 Logging détaillé avec emojis pour une meilleure lisibilité
 - ⚡ Gestion d'erreurs robuste
 - 🐧 Optimisé pour Linux avec support systemd
 - 📦 Installation automatisée
@@ -26,12 +26,12 @@ Outil en ligne de commande pour copier des fichiers et dossiers depuis un serveu
 # 1. Cloner et compiler
 git clone <repository-url>
 cd SftpCopyTool
-chmod +x build.sh
-./build.sh --trim --clean
+chmod +x scripts/build.sh
+./scripts/build.sh --trim --clean
 
 # 2. Déployer
-chmod +x deploy.sh
-sudo ./deploy.sh
+chmod +x scripts/deploy.sh
+sudo ./scripts/deploy.sh
 
 # 3. Configurer
 sudo nano /etc/sftp-copy/config.env
@@ -47,7 +47,7 @@ sudo systemctl start sftp-copy.service
 ```bash
 git clone <repository-url>
 cd SftpCopyTool
-dotnet run -- --help
+dotnet run --project src/ -- --help
 ```
 
 ## Installation rapide (Linux)
@@ -58,8 +58,8 @@ git clone <repository-url>
 cd SftpCopyTool
 
 # Installation automatique (nécessite sudo)
-chmod +x install.sh
-sudo ./install.sh
+chmod +x scripts/install.sh
+sudo ./scripts/install.sh
 ```
 
 ## Installation manuelle
@@ -74,13 +74,13 @@ cd SftpCopyTool
 # CentOS/RHEL : sudo yum install dotnet-runtime-8.0 dotnet-sdk-8.0
 
 # Restaurer les dépendances
-dotnet restore
+dotnet restore src/
 
 # Compiler le projet
-dotnet build -c Release
+dotnet build src/ -c Release
 
 # Publier l'application (recommandé pour la production)
-dotnet publish -c Release -o ./publish --self-contained true -r linux-x64
+dotnet publish src/ -c Release -o ./publish --self-contained true -r linux-x64
 ```
 
 ## Configuration
@@ -89,7 +89,7 @@ dotnet publish -c Release -o ./publish --self-contained true -r linux-x64
 
 ```bash
 # Copiez et modifiez le fichier de configuration
-cp config.env /etc/sftp-copy/config.env
+cp config/config.env /etc/sftp-copy/config.env
 sudo nano /etc/sftp-copy/config.env
 
 # Chargez la configuration
@@ -116,17 +116,17 @@ La commande `dotnet publish` créé une version optimisée et déployable de l'a
 
 ```bash
 # Publication basique (nécessite .NET Runtime sur la machine cible)
-dotnet publish -c Release -o ./publish
+dotnet publish src/ -c Release -o ./publish
 
 # Publication autonome (inclut le runtime .NET)
-dotnet publish -c Release -o ./publish --self-contained true -r linux-x64
+dotnet publish src/ -c Release -o ./publish --self-contained true -r linux-x64
 
 # Publication optimisée avec suppression des dépendances inutilisées
-dotnet publish -c Release -o ./publish --self-contained true -r linux-x64 -p:PublishTrimmed=true
+dotnet publish src/ -c Release -o ./publish --self-contained true -r linux-x64 -p:PublishTrimmed=true
 
 # Publication pour différentes architectures
-dotnet publish -c Release -o ./publish-arm64 --self-contained true -r linux-arm64  # ARM64
-dotnet publish -c Release -o ./publish-musl --self-contained true -r linux-musl-x64  # Alpine Linux
+dotnet publish src/ -c Release -o ./publish-arm64 --self-contained true -r linux-arm64  # ARM64
+dotnet publish src/ -c Release -o ./publish-musl --self-contained true -r linux-musl-x64  # Alpine Linux
 ```
 
 ### Déploiement de l'application publiée
@@ -158,7 +158,7 @@ sftp-copy-tool --host <serveur> --username <utilisateur> --password <mot_de_pass
 ### Avec dotnet run (développement)
 
 ```bash
-dotnet run -- --host <serveur> --username <utilisateur> --password <mot_de_passe> --remote-path <chemin_distant> --local-path <chemin_local>
+dotnet run --project src/ -- --host <serveur> --username <utilisateur> --password <mot_de_passe> --remote-path <chemin_distant> --local-path <chemin_local>
 ```
 
 ### Options disponibles
@@ -195,13 +195,13 @@ dotnet run -- --host <serveur> --username <utilisateur> --password <mot_de_passe
 
 ```bash
 # Fichier unique
-dotnet run -- --host sftp.example.com --username myuser --password mypass --remote-path /home/user/document.pdf --local-path /tmp/downloads/
+dotnet run --project src/ -- --host sftp.example.com --username myuser --password mypass --remote-path /home/user/document.pdf --local-path /tmp/downloads/
 
 # Dossier récursif
-dotnet run -- --host sftp.example.com --username myuser --password mypass --remote-path /home/user/documents --local-path /tmp/downloads/ --recursive
+dotnet run --project src/ -- --host sftp.example.com --username myuser --password mypass --remote-path /home/user/documents --local-path /tmp/downloads/ --recursive
 
 # Fichier spécifique
-dotnet run -- --host sftp.example.com --username myuser --password mypass --remote-path /home/user/data.txt --local-path /tmp/my-data.txt
+dotnet run --project src/ -- --host sftp.example.com --username myuser --password mypass --remote-path /home/user/data.txt --local-path /tmp/my-data.txt
 ```
 
 #### Utilisation avec configuration (après installation)
@@ -213,6 +213,31 @@ sftp-copy
 # Ou avec systemd
 sudo systemctl start sftp-copy.service
 ```
+
+## 📋 Logs avec Emojis
+
+L'application utilise des emojis pour améliorer la lisibilité des logs :
+
+- 🔌 **Connexion/Déconnexion** - État des connexions SFTP
+- ✅ **Succès** - Opérations réussies
+- ❌ **Erreurs** - Problèmes rencontrés
+- 📂 **Dossiers** - Traitement des répertoires
+- 📄 **Fichiers** - Copie de fichiers individuels
+- ⬇️ **Téléchargement** - Transferts en cours
+- 🎉 **Completion** - Fin des opérations avec succès
+
+Exemple de sortie :
+```
+🔌 Connexion au serveur SFTP exemple.com:22
+✅ Connexion établie avec succès
+📄 Copie du fichier '/remote/file.txt' vers '/local/destination/'
+⬇️ Téléchargement : /remote/file.txt -> /local/destination/file.txt
+✅ Fichier copié : 2048 octets
+🎉 Copie terminée avec succès
+🔌 Déconnexion du serveur SFTP
+```
+
+Pour plus de détails, consultez [le guide des emojis](docs/EMOJI_LOGS.md).
 
 ## Service systemd
 
@@ -234,12 +259,12 @@ sudo journalctl -u sftp-copy.service -f
 
 ## Scripts utilitaires
 
-- `install.sh` : Installation automatique sur Linux
-- `uninstall.sh` : Désinstallation complète
-- `run-example.sh` : Exemple de script d'exécution
-- `config.env` : Modèle de configuration
-- `build.sh` : Script de compilation et publication
-- `deploy.sh` : Script de déploiement automatisé
+- `scripts/install.sh` : Installation automatique sur Linux
+- `scripts/uninstall.sh` : Désinstallation complète
+- `scripts/run-example.sh` : Exemple de script d'exécution
+- `config/config.env` : Modèle de configuration
+- `scripts/build.sh` : Script de compilation et publication
+- `scripts/deploy.sh` : Script de déploiement automatisé
 
 ## Sécurité
 
@@ -262,22 +287,25 @@ sudo chown root:root /etc/sftp-copy/config.env
 
 ```
 SftpCopyTool/
-├── Program.cs                  # Point d'entrée et configuration CLI
-├── SftpService.cs              # Service principal pour les opérations SFTP
-├── SftpCopyTool.csproj         # Configuration du projet
-├── README.md                   # Documentation
-├── LICENSE                     # Licence MIT
-├── .gitignore                  # Fichiers à ignorer par Git
-├── Scripts d'installation/déploiement:
-│   ├── install.sh              # Script d'installation Linux automatique
-│   ├── uninstall.sh            # Script de désinstallation
-│   ├── build.sh                # Script de compilation et publication
-│   └── deploy.sh               # Script de déploiement automatisé
-├── Configuration:
-│   ├── config.env              # Modèle de configuration
-│   └── sftp-copy.service.example # Exemple de service systemd
-└── Exemples:
-    └── run-example.sh          # Exemple d'exécution
+├── src/                            # Code source
+│   ├── Program.cs                  # Point d'entrée et configuration CLI
+│   ├── SftpService.cs              # Service principal pour les opérations SFTP
+│   └── SftpCopyTool.csproj         # Configuration du projet
+├── scripts/                        # Scripts d'installation et de déploiement
+│   ├── install.sh                  # Script d'installation Linux automatique
+│   ├── uninstall.sh                # Script de désinstallation
+│   ├── build.sh                    # Script de compilation et publication
+│   ├── deploy.sh                   # Script de déploiement automatisé
+│   └── run-example.sh              # Exemple d'exécution
+├── config/                         # Configuration
+│   ├── config.env                  # Modèle de configuration
+│   ├── sftp-copy.service           # Service systemd
+│   └── sftp-copy.service.example   # Exemple de service systemd
+├── docs/                           # Documentation
+│   └── BUILD_GUIDE.md              # Guide de compilation détaillé
+├── README.md                       # Documentation principale
+├── LICENSE                         # Licence MIT
+└── .gitignore                      # Fichiers à ignorer par Git
 ```
 
 ## Dépendances
@@ -300,7 +328,7 @@ L'outil gère les erreurs suivantes :
 
 ```bash
 # Désinstallation automatique
-sudo ./uninstall.sh
+sudo ./scripts/uninstall.sh
 
 # Ou manuellement
 sudo systemctl stop sftp-copy.service

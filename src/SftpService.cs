@@ -18,14 +18,14 @@ public class SftpService
     {
         return Task.Run(() =>
         {
-            _logger.LogInformation("Connexion au serveur SFTP {Host}:{Port}", host, port);
+            _logger.LogInformation("🔌 Connexion au serveur SFTP {Host}:{Port}", host, port);
 
             using var client = new SftpClient(host, port, username, password);
             
             try
             {
                 client.Connect();
-                _logger.LogInformation("Connexion établie avec succès");
+                _logger.LogInformation("✅ Connexion établie avec succès");
 
                 // Vérifier si le chemin distant existe
                 if (!client.Exists(remotePath))
@@ -39,7 +39,7 @@ public class SftpService
                 {
                     if (recursive)
                     {
-                        _logger.LogInformation("Copie récursive du dossier '{RemotePath}' vers '{LocalPath}'", remotePath, localPath);
+                        _logger.LogInformation("📂 Copie récursive du dossier '{RemotePath}' vers '{LocalPath}'", remotePath, localPath);
                         CopyDirectory(client, remotePath, localPath);
                     }
                     else
@@ -49,15 +49,15 @@ public class SftpService
                 }
                 else
                 {
-                    _logger.LogInformation("Copie du fichier '{RemotePath}' vers '{LocalPath}'", remotePath, localPath);
+                    _logger.LogInformation("📄 Copie du fichier '{RemotePath}' vers '{LocalPath}'", remotePath, localPath);
                     CopyFile(client, remotePath, localPath);
                 }
 
-                _logger.LogInformation("Copie terminée avec succès");
+                _logger.LogInformation("🎉 Copie terminée avec succès");
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Erreur lors de la copie SFTP");
+                _logger.LogError(ex, "❌ Erreur lors de la copie SFTP");
                 throw;
             }
             finally
@@ -65,7 +65,7 @@ public class SftpService
                 if (client.IsConnected)
                 {
                     client.Disconnect();
-                    _logger.LogInformation("Déconnexion du serveur SFTP");
+                    _logger.LogInformation("🔌 Déconnexion du serveur SFTP");
                 }
             }
         });
@@ -90,17 +90,17 @@ public class SftpService
             if (!string.IsNullOrEmpty(localDir) && !Directory.Exists(localDir))
             {
                 Directory.CreateDirectory(localDir);
-                _logger.LogInformation("Dossier créé : {LocalDir}", localDir);
+                _logger.LogInformation("📁 Dossier créé : {LocalDir}", localDir);
             }
         }
 
-        _logger.LogInformation("Téléchargement : {RemoteFile} -> {LocalFile}", remoteFilePath, localFilePath);
+        _logger.LogInformation("⬇️ Téléchargement : {RemoteFile} -> {LocalFile}", remoteFilePath, localFilePath);
 
         using var fileStream = File.Create(localFilePath);
         client.DownloadFile(remoteFilePath, fileStream);
 
         var remoteFile = client.Get(remoteFilePath);
-        _logger.LogInformation("Fichier copié : {Size} octets", remoteFile.Length);
+        _logger.LogInformation("✅ Fichier copié : {Size} octets", remoteFile.Length);
     }
 
     private void CopyDirectory(SftpClient client, string remoteDirPath, string localDirPath)
@@ -109,7 +109,7 @@ public class SftpService
         if (!Directory.Exists(localDirPath))
         {
             Directory.CreateDirectory(localDirPath);
-            _logger.LogInformation("Dossier créé : {LocalDir}", localDirPath);
+            _logger.LogInformation("📁 Dossier créé : {LocalDir}", localDirPath);
         }
 
         // Lister le contenu du dossier distant
@@ -126,17 +126,17 @@ public class SftpService
 
             if (remoteFile.IsDirectory)
             {
-                _logger.LogInformation("Traitement du dossier : {RemoteDir}", remoteItemPath);
+                _logger.LogInformation("📂 Traitement du dossier : {RemoteDir}", remoteItemPath);
                 CopyDirectory(client, remoteItemPath, localItemPath);
             }
             else if (remoteFile.IsRegularFile)
             {
-                _logger.LogInformation("Téléchargement : {RemoteFile} -> {LocalFile}", remoteItemPath, localItemPath);
+                _logger.LogInformation("⬇️ Téléchargement : {RemoteFile} -> {LocalFile}", remoteItemPath, localItemPath);
                 
                 using var fileStream = File.Create(localItemPath);
                 client.DownloadFile(remoteItemPath, fileStream);
                 
-                _logger.LogInformation("Fichier copié : {Size} octets", remoteFile.Length);
+                _logger.LogInformation("✅ Fichier copié : {Size} octets", remoteFile.Length);
             }
         }
     }

@@ -70,7 +70,7 @@ class Program
             }
             catch (Exception ex)
             {
-                logger.LogError(ex, "Erreur lors de la copie SFTP");
+                logger.LogError(ex, "❌ Erreur lors de la copie SFTP");
                 Environment.Exit(1);
             }
         }, hostOption, portOption, usernameOption, passwordOption, remotePathOption, localPathOption, recursiveOption);
