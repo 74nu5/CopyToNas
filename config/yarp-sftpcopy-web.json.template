@@ -1,0 +1,96 @@
+# Configuration YARP pour SFTP Copy Tool Web Interface
+# Ajoutez cette configuration à votre appsettings.json de YARP
+
+{
+  "ReverseProxy": {
+    "Routes": {
+      "sftp-web-route": {
+        "ClusterId": "sftp-web-cluster",
+        "Match": {
+          "Path": "/sftp-web/{**catch-all}"
+        },
+        "Transforms": [
+          {
+            "PathPattern": "/{**catch-all}"
+          },
+          {
+            "RequestHeader": "X-Forwarded-Proto",
+            "Set": "https"
+          },
+          {
+            "RequestHeader": "X-Forwarded-Host",
+            "Set": "{OriginalHost}"
+          }
+        ]
+      }
+    },
+    "Clusters": {
+      "sftp-web-cluster": {
+        "Destinations": {
+          "destination1": {
+            "Address": "http://localhost:5000/"
+          }
+        },
+        "HealthCheck": {
+          "Active": {
+            "Enabled": true,
+            "Interval": "00:00:30",
+            "Timeout": "00:00:05",
+            "Policy": "ConsecutiveFailures",
+            "Path": "/health"
+          }
+        }
+      }
+    }
+  }
+}
+
+# Alternative: Configuration pour une route racine (sans préfixe /sftp-web)
+# Si vous voulez que l'application soit accessible directement sur un sous-domaine
+
+{
+  "ReverseProxy": {
+    "Routes": {
+      "sftp-web-root-route": {
+        "ClusterId": "sftp-web-cluster",
+        "Match": {
+          "Hosts": ["sftp.votre-domaine.com"]
+        },
+        "Transforms": [
+          {
+            "RequestHeader": "X-Forwarded-Proto",
+            "Set": "https"
+          },
+          {
+            "RequestHeader": "X-Forwarded-Host",
+            "Set": "{OriginalHost}"
+          }
+        ]
+      }
+    },
+    "Clusters": {
+      "sftp-web-cluster": {
+        "Destinations": {
+          "destination1": {
+            "Address": "http://localhost:5000/"
+          }
+        },
+        "HealthCheck": {
+          "Active": {
+            "Enabled": true,
+            "Interval": "00:00:30",
+            "Timeout": "00:00:05",
+            "Policy": "ConsecutiveFailures",
+            "Path": "/health"
+          }
+        }
+      }
+    }
+  }
+}
+
+# Notes importantes:
+# 1. Remplacez "sftp.votre-domaine.com" par votre vrai domaine
+# 2. Le port 5000 correspond au port configuré dans le script de déploiement
+# 3. Les health checks pointent vers /health (endpoint standard ASP.NET Core)
+# 4. Les headers X-Forwarded-* sont importants pour le bon fonctionnement derrière un proxy

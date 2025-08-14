@@ -1,0 +1,375 @@
+﻿@page "/"
+@using SftpCopyTool.Web.Services
+@implements IDisposable
+@inject SftpExecutionService SftpExecutionService
+@inject IProgressReporter ProgressReporter
+
+<PageTitle>SFTP Copy Tool</PageTitle>
+
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <h1 class="display-4 text-primary mb-4">
+                <i class="fas fa-cloud-download-alt"></i>
+                SFTP Copy Tool
+            </h1>
+            <p class="lead">Interface graphique pour copier des fichiers via SFTP avec suivi en temps réel de la progression.</p>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Configuration Panel -->
+        <div class="col-lg-6 mb-4">
+            <div class="card h-100">
+                <div class="card-header bg-primary text-white">
+                    <h4><i class="fas fa-cogs"></i> Configuration SFTP</h4>
+                </div>
+                <div class="card-body">
+                    <EditForm Model="@sftpParameters" OnValidSubmit="@HandleValidSubmit">
+                        <DataAnnotationsValidator />
+
+                        <!-- Connexion SFTP -->
+                        <h5 class="text-secondary mb-3">🔗 Connexion</h5>
+                        <div class="row mb-3">
+                            <div class="col-md-8">
+                                <label class="form-label">Serveur SFTP</label>
+                                <InputText @bind-Value="sftpParameters.Host" class="form-control" placeholder="ex: sftp.example.com" />
+                                <ValidationMessage For="@(() => sftpParameters.Host)" class="text-danger" />
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">Port</label>
+                                <InputNumber @bind-Value="sftpParameters.Port" class="form-control" />
+                                <ValidationMessage For="@(() => sftpParameters.Port)" class="text-danger" />
+                            </div>
+                        </div>
+
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label class="form-label">Nom d'utilisateur</label>
+                                <InputText @bind-Value="sftpParameters.Username" class="form-control" placeholder="votre-username" />
+                                <ValidationMessage For="@(() => sftpParameters.Username)" class="text-danger" />
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Mot de passe</label>
+                                <input type="password" @bind="sftpParameters.Password" class="form-control" placeholder="votre-mot-de-passe" />
+                            </div>
+                        </div>
+
+                        <!-- Chemins -->
+                        <h5 class="text-secondary mb-3">📁 Chemins</h5>
+                        <div class="mb-3">
+                            <label class="form-label">Chemin distant (source)</label>
+                            <InputText @bind-Value="sftpParameters.RemotePath" class="form-control" placeholder="/home/user/documents" />
+                            <ValidationMessage For="@(() => sftpParameters.RemotePath)" class="text-danger" />
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Chemin local (destination)</label>
+                            <InputText @bind-Value="sftpParameters.LocalPath" class="form-control" placeholder="C:\Downloads\sftp" />
+                            <ValidationMessage For="@(() => sftpParameters.LocalPath)" class="text-danger" />
+                        </div>
+
+                        <!-- Options -->
+                        <h5 class="text-secondary mb-3">⚙️ Options</h5>
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <div class="form-check">
+                                    <InputCheckbox @bind-Value="sftpParameters.Recursive" class="form-check-input" id="recursive" />
+                                    <label class="form-check-label" for="recursive">
+                                        Copie récursive (dossiers)
+                                    </label>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="form-check">
+                                    <InputCheckbox @bind-Value="sftpParameters.EnableFileLogging" class="form-check-input" id="fileLogging" />
+                                    <label class="form-check-label" for="fileLogging">
+                                        Logs dans fichier
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Niveau de logging</label>
+                            <InputSelect @bind-Value="sftpParameters.LogLevel" class="form-select">
+                                <option value="Verbose">Verbose</option>
+                                <option value="Debug">Debug</option>
+                                <option value="Information">Information</option>
+                                <option value="Warning">Warning</option>
+                                <option value="Error">Error</option>
+                            </InputSelect>
+                        </div>
+
+                        <!-- Actions -->
+                        <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                            <button type="button" @onclick="ResetForm" class="btn btn-outline-secondary me-md-2" disabled="@isOperationRunning">
+                                <i class="fas fa-undo"></i> Réinitialiser
+                            </button>
+
+                            <button type="button" @onclick="TestConnection" class="btn btn-outline-info me-md-2" disabled="@isOperationRunning">
+                                <i class="fas fa-plug"></i> Tester la connexion
+                            </button>
+
+                            @if (!isOperationRunning)
+                            {
+                                <button type="submit" class="btn btn-primary">
+                                    <i class="fas fa-play"></i> Démarrer la copie
+                                </button>
+                            }
+                            else
+                            {
+                                <button type="button" @onclick="CancelOperation" class="btn btn-danger">
+                                    <i class="fas fa-stop"></i> Annuler
+                                </button>
+                            }
+                        </div>
+                    </EditForm>
+                </div>
+            </div>
+        </div>
+
+        <!-- Progress Panel -->
+        <div class="col-lg-6 mb-4">
+            <div class="card h-100">
+                <div class="card-header @GetProgressHeaderClass()">
+                    <h4><i class="@GetProgressIcon()"></i> @GetProgressTitle()</h4>
+                </div>
+                <div class="card-body">
+                    @if (!string.IsNullOrEmpty(progressState.Operation))
+                    {
+                        <div class="mb-3">
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <span class="fw-bold">@progressState.Operation</span>
+                                <span class="badge @GetStatusBadgeClass()">@GetStatusText()</span>
+                            </div>
+
+                            <div class="progress mb-2" style="height: 25px;">
+                                <div class="progress-bar @GetProgressBarClass() progress-bar-striped @(isOperationRunning ? "progress-bar-animated" : "")"
+                                     role="progressbar"
+                                     style="width: @(progressState.Progress)%"
+                                     aria-valuenow="@progressState.Progress"
+                                     aria-valuemin="0"
+                                     aria-valuemax="100">
+                                    @progressState.Progress.ToString("F1")%
+                                </div>
+                            </div>
+
+                            @if (!string.IsNullOrEmpty(progressState.CurrentMessage))
+                            {
+                                <div class="alert alert-info mb-3" role="alert">
+                                    <small>@progressState.CurrentMessage</small>
+                                </div>
+                            }
+
+                            @if (progressState.StartTime.HasValue)
+                            {
+                                <div class="row text-muted small">
+                                    <div class="col-6">
+                                        <strong>Début :</strong> @progressState.StartTime.Value.ToString("HH:mm:ss")
+                                    </div>
+                                    @if (progressState.EndTime.HasValue)
+                                    {
+                                        <div class="col-6">
+                                            <strong>Fin :</strong> @progressState.EndTime.Value.ToString("HH:mm:ss")
+                                        </div>
+                                    }
+                                    else if (isOperationRunning)
+                                    {
+                                        <div class="col-6">
+                                            <strong>Durée :</strong> @GetElapsedTime()
+                                        </div>
+                                    }
+                                </div>
+                            }
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="text-center text-muted py-5">
+                            <i class="fas fa-clock fa-3x mb-3"></i>
+                            <p>En attente d'une opération...</p>
+                            <small>Configurez les paramètres et cliquez sur "Démarrer la copie" pour commencer.</small>
+                        </div>
+                    }
+
+                    <!-- Log Messages -->
+                    @if (progressState.LogMessages.Any())
+                    {
+                        <div class="mt-4">
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <h6>📋 Logs de l'opération</h6>
+                                <button type="button" @onclick="ClearLogs" class="btn btn-outline-secondary btn-sm" disabled="@isOperationRunning">
+                                    <i class="fas fa-trash"></i> Vider
+                                </button>
+                            </div>
+
+                            <div class="log-container" style="max-height: 300px; overflow-y: auto; background-color: #f8f9fa; padding: 10px; border-radius: 5px; border: 1px solid #dee2e6;">
+                                @foreach (var log in progressState.LogMessages.TakeLast(50).Reverse())
+                                {
+                                    <div class="log-entry mb-1 @log.BootstrapClass">
+                                        <small>
+                                            <span class="text-muted">[@log.Timestamp.ToString("HH:mm:ss")]</span>
+                                            <span>@log.Icon</span>
+                                            <span>@log.Message</span>
+                                        </small>
+                                    </div>
+                                }
+                            </div>
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private SftpParameters sftpParameters = new();
+    private ProgressState progressState = new();
+    private bool isOperationRunning = false;
+    private CancellationTokenSource? cancellationTokenSource;    protected override void OnInitialized()
+    {
+        // S'abonner aux mises à jour de progression
+        ProgressReporter.OnProgressUpdate += OnProgressUpdated;
+        progressState = ProgressReporter.CurrentState;
+        isOperationRunning = progressState.IsRunning;
+    }
+
+    private void OnProgressUpdated(ProgressState newState)
+    {
+        progressState = newState;
+        isOperationRunning = progressState.IsRunning;
+
+        InvokeAsync(StateHasChanged);
+    }
+
+    private async Task HandleValidSubmit()
+    {
+        if (isOperationRunning)
+            return;
+
+        try
+        {
+            cancellationTokenSource = new CancellationTokenSource();
+            isOperationRunning = true;
+
+            await SftpExecutionService.ExecuteCopyAsync(sftpParameters, cancellationTokenSource.Token);
+        }
+        catch (OperationCanceledException)
+        {
+            // L'opération a été annulée, c'est géré par le système de progression
+        }
+        catch (Exception)
+        {
+            // Les erreurs sont déjà gérées par le système de progression et les logs
+        }
+        finally
+        {
+            isOperationRunning = false;
+            cancellationTokenSource?.Dispose();
+            cancellationTokenSource = null;
+        }
+    }
+
+    private void CancelOperation()
+    {
+        cancellationTokenSource?.Cancel();
+    }
+
+    private void ResetForm()
+    {
+        sftpParameters = new SftpParameters();
+        ProgressReporter.Reset();
+    }
+
+    private void ClearLogs()
+    {
+        ProgressReporter.Reset();
+    }
+
+    // Helper methods pour l'UI
+    private string GetProgressHeaderClass() => progressState.LastOperationSuccess switch
+    {
+        true => "bg-success text-white",
+        false => "bg-danger text-white",
+        null => isOperationRunning ? "bg-primary text-white" : "bg-secondary text-white"
+    };
+
+    private string GetProgressIcon() => progressState.LastOperationSuccess switch
+    {
+        true => "fas fa-check-circle",
+        false => "fas fa-times-circle",
+        null => isOperationRunning ? "fas fa-spinner fa-spin" : "fas fa-hourglass-start"
+    };
+
+    private string GetProgressTitle() => progressState.LastOperationSuccess switch
+    {
+        true => "Opération terminée avec succès",
+        false => "Opération échouée",
+        null => isOperationRunning ? "Opération en cours..." : "Prêt à démarrer"
+    };
+
+    private string GetStatusBadgeClass() => progressState.LastOperationSuccess switch
+    {
+        true => "bg-success",
+        false => "bg-danger",
+        null => isOperationRunning ? "bg-primary" : "bg-secondary"
+    };
+
+    private string GetStatusText() => progressState.LastOperationSuccess switch
+    {
+        true => "Réussie",
+        false => "Échouée",
+        null => isOperationRunning ? "En cours" : "En attente"
+    };
+
+    private string GetProgressBarClass() => progressState.LastOperationSuccess switch
+    {
+        true => "bg-success",
+        false => "bg-danger",
+        null => "bg-primary"
+    };
+
+    private async Task TestConnection()
+    {
+        if (isOperationRunning)
+            return;
+
+        try
+        {
+            cancellationTokenSource = new CancellationTokenSource();
+            isOperationRunning = true;
+
+            await SftpExecutionService.TestConnectionAsync(sftpParameters, cancellationTokenSource.Token);
+        }
+        catch (OperationCanceledException)
+        {
+            // L'annulation est gérée par le système de progression
+        }
+        catch (Exception)
+        {
+            // Les erreurs sont gérées par le système de progression
+        }
+        finally
+        {
+            isOperationRunning = false;
+            cancellationTokenSource?.Dispose();
+            cancellationTokenSource = null;
+        }
+    }
+
+    private string GetElapsedTime()
+    {
+        if (!progressState.StartTime.HasValue) return "00:00";
+
+        var elapsed = DateTime.Now - progressState.StartTime.Value;
+        return elapsed.ToString(@"mm\:ss");
+    }
+
+    public void Dispose()
+    {
+        ProgressReporter.OnProgressUpdate -= OnProgressUpdated;
+        cancellationTokenSource?.Dispose();
+    }
+}
