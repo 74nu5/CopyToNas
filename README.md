@@ -1,4 +1,14 @@
-# SFTP Copy Tool
+# SF## Fonctionnalités
+
+- 🚀 Copie de fichiers individuels depuis un serveur SFTP
+- 📁 Copie récursive de dossiers et de leurs sous-éléments
+- 🔒 Support des connexions SFTP sécurisées
+- ⏱️ **Suivi de progression en temps réel** avec vitesse de téléchargement
+- 📋 **Logging avancé avec Serilog** - Niveaux configurables et rotation des fichiers
+- 😀 Logging détaillé avec emojis pour une meilleure lisibilité
+- ⚡ Gestion d'erreurs robuste
+- 🐧 Optimisé pour Linux avec support systemd
+- 📦 Installation automatiséeol
 
 Outil en ligne de commande pour copier des fichiers et dossiers depuis un serveur SFTP vers un système local Linux.
 
@@ -39,6 +49,9 @@ sudo nano /etc/sftp-copy/config.env
 
 # 4. Utiliser
 sftp-copy-tool --help
+# ou avec logging personnalisé
+sftp-copy-tool --host sftp.example.com --username user --password pass \
+  --remote-path /remote --local-path /local --log-level Debug
 # ou
 sudo systemctl start sftp-copy.service
 ```
@@ -164,6 +177,7 @@ dotnet run --project src/ -- --host <serveur> --username <utilisateur> --passwor
 
 ### Options disponibles
 
+**Options de connexion SFTP :**
 - `--host` : Adresse du serveur SFTP (obligatoire)
 - `--port` : Port du serveur SFTP (défaut: 22)
 - `--username` : Nom d'utilisateur SFTP (obligatoire)  
@@ -171,6 +185,16 @@ dotnet run --project src/ -- --host <serveur> --username <utilisateur> --passwor
 - `--remote-path` : Chemin absolu sur le serveur distant (obligatoire)
 - `--local-path` : Dossier local de destination (obligatoire)
 - `--recursive` : Active la copie récursive pour les dossiers
+
+**Options de logging avancé (Serilog) :**
+- `--log-level` : Niveau de logging (défaut: Information)
+  - `Verbose` : Logs très détaillés pour le débogage
+  - `Debug` : Informations de débogage
+  - `Information` : Logs informatifs normaux (recommandé)
+  - `Warning` : Avertissements uniquement
+  - `Error` : Erreurs uniquement
+  - `Fatal` : Erreurs critiques uniquement
+- `--log-file` : Activer l'écriture des logs dans un fichier (défaut: true)
 
 ### Exemples
 
@@ -192,17 +216,35 @@ dotnet run --project src/ -- --host <serveur> --username <utilisateur> --passwor
 ./publish/SftpCopyTool --host sftp.example.com --username myuser --password mypass --remote-path /home/user/data.txt --local-path /tmp/my-data.txt
 ```
 
+#### Exemples avec options de logging avancées
+
+```bash
+# Copie avec logging minimal (erreurs uniquement, pas de fichier de log)
+./publish/SftpCopyTool --host sftp.example.com --username myuser --password mypass \
+  --remote-path /home/user/large-file.zip --local-path /tmp/downloads/ \
+  --log-level Error --log-file false
+
+# Copie avec logging détaillé pour diagnostic
+./publish/SftpCopyTool --host sftp.example.com --username myuser --password mypass \
+  --remote-path /home/user/documents --local-path /tmp/downloads/ --recursive \
+  --log-level Debug --log-file true
+
+# Copie de production avec logs standards (configuration par défaut)
+./publish/SftpCopyTool --host sftp.example.com --username myuser --password mypass \
+  --remote-path /home/user/backup --local-path /local/backup/ --recursive
+```
+
 #### Exemples avec dotnet run (développement)
 
 ```bash
 # Fichier unique
 dotnet run --project src/ -- --host sftp.example.com --username myuser --password mypass --remote-path /home/user/document.pdf --local-path /tmp/downloads/
 
-# Dossier récursif
-dotnet run --project src/ -- --host sftp.example.com --username myuser --password mypass --remote-path /home/user/documents --local-path /tmp/downloads/ --recursive
+# Dossier récursif avec logging de débogage
+dotnet run --project src/ -- --host sftp.example.com --username myuser --password mypass --remote-path /home/user/documents --local-path /tmp/downloads/ --recursive --log-level Debug
 
-# Fichier spécifique
-dotnet run --project src/ -- --host sftp.example.com --username myuser --password mypass --remote-path /home/user/data.txt --local-path /tmp/my-data.txt
+# Fichier spécifique avec logs minimaux
+dotnet run --project src/ -- --host sftp.example.com --username myuser --password mypass --remote-path /home/user/data.txt --local-path /tmp/my-data.txt --log-level Warning --log-file false
 ```
 
 #### Utilisation avec configuration (après installation)
@@ -246,6 +288,119 @@ Exemple de sortie avec progression :
 **Guides détaillés :**
 - 📋 [Guide des emojis](docs/EMOJI_LOGS.md)
 - 📊 [Suivi de progression](docs/DOWNLOAD_PROGRESS.md)
+- 📊 [Système de logging Serilog](docs/SERILOG_LOGGING.md) - **Nouveau !**
+
+## 📊 Logging Avancé avec Serilog
+
+L'application utilise **Serilog** pour un système de logging professionnel et configurable avec les fonctionnalités suivantes :
+
+### 🎛️ Configuration des Logs
+
+#### Niveaux de Log Disponibles
+
+| Niveau | Description | Cas d'usage |
+|--------|-------------|-------------|
+| `Verbose` | Logs très détaillés | Débogage approfondi, diagnostic |
+| `Debug` | Informations de débogage | Développement, investigation |
+| `Information` | Logs informatifs normaux | **Production (défaut)** |
+| `Warning` | Avertissements uniquement | Monitoring d'alertes |
+| `Error` | Erreurs uniquement | Monitoring d'erreurs |
+| `Fatal` | Erreurs critiques uniquement | Alertes critiques |
+
+#### Options de Sortie des Logs
+
+- **Console** : Toujours activée avec format compact `[HH:mm:ss LVL] Message`
+- **Fichier** : Optionnelle avec `--log-file true/false`
+
+### 📁 Gestion des Fichiers de Log
+
+#### Rotation Automatique
+- **Rotation quotidienne** : Un nouveau fichier chaque jour
+- **Format des noms** : `logs/sftp-copy-YYYYMMDD.txt`
+- **Rétention** : Conserve automatiquement les 10 derniers fichiers
+- **Format détaillé** : `[YYYY-MM-dd HH:mm:ss.fff zzz LVL] Message` avec timezone
+
+#### Structure des Logs
+```
+logs/
+├── sftp-copy-20250814.txt    # Logs d'aujourd'hui
+├── sftp-copy-20250813.txt    # Logs d'hier
+└── sftp-copy-20250812.txt    # Logs plus anciens
+```
+
+### 🎯 Exemples d'Utilisation des Logs
+
+#### Logging Minimal (Production)
+```bash
+# Affichage uniquement des erreurs sur la console, sans fichier de log
+./SftpCopyTool --host sftp.example.com --username user --password pass \
+  --remote-path /remote/file --local-path /local/ \
+  --log-level Error --log-file false
+```
+
+#### Logging Standard (Recommandé)
+```bash
+# Logs informatifs en console et fichier (configuration par défaut)
+./SftpCopyTool --host sftp.example.com --username user --password pass \
+  --remote-path /remote/file --local-path /local/
+```
+
+#### Logging de Débogage
+```bash
+# Logs très détaillés pour diagnostic
+./SftpCopyTool --host sftp.example.com --username user --password pass \
+  --remote-path /remote/file --local-path /local/ \
+  --log-level Debug --log-file true
+```
+
+#### Monitoring d'Erreurs
+```bash
+# Affichage uniquement des avertissements et erreurs
+./SftpCopyTool --host sftp.example.com --username user --password pass \
+  --remote-path /remote/file --local-path /local/ \
+  --log-level Warning
+```
+
+### 🔍 Formats de Sortie
+
+#### Format Console (Compact)
+```
+[10:03:40 INF] 🔌 Connexion au serveur SFTP test.example.com:22
+[10:03:41 ERR] ❌ Erreur lors de la copie SFTP
+[10:03:41 FTL] 💀 Erreur critique: Hôte inconnu
+```
+
+#### Format Fichier (Détaillé)
+```
+[2025-08-14 10:03:40.123 +02:00 INF] 🔌 Connexion au serveur SFTP test.example.com:22
+[2025-08-14 10:03:41.456 +02:00 ERR] ❌ Erreur lors de la copie SFTP
+[2025-08-14 10:03:41.789 +02:00 FTL] 💀 Erreur critique: Hôte inconnu
+```
+
+### ⚙️ Configuration Avancée
+
+#### Variables d'Environnement (pour scripts)
+```bash
+# Configuration des logs via variables
+export SFTP_LOG_LEVEL="Debug"
+export SFTP_LOG_FILE="true"
+
+# Utilisation avec configuration automatique
+./SftpCopyTool --host $SFTP_HOST --username $SFTP_USER \
+  --log-level $SFTP_LOG_LEVEL --log-file $SFTP_LOG_FILE \
+  # ... autres paramètres
+```
+
+#### Intégration avec systemd
+```bash
+# Voir les logs en temps réel
+sudo journalctl -u sftp-copy.service -f
+
+# Voir les logs avec niveau de détail
+sudo journalctl -u sftp-copy.service --since today
+```
+
+**Note :** Les logs conservent tous les **emojis** pour une meilleure lisibilité, même dans les fichiers de log ! 🎉
 
 ## Service systemd
 
@@ -318,10 +473,15 @@ SftpCopyTool/
 
 ## Dépendances
 
+**Core :**
 - **SSH.NET** (2024.0.0) : Bibliothèque pour les connexions SSH/SFTP
-- **Microsoft.Extensions.Logging** (8.0.0) : Framework de logging
-- **Microsoft.Extensions.Logging.Console** (8.0.0) : Logger console  
 - **System.CommandLine** (2.0.0-beta4) : Parsing des arguments CLI
+
+**Logging (Serilog) :**
+- **Serilog** (4.0.1) : Framework de logging structuré
+- **Serilog.Extensions.Logging** (8.0.0) : Intégration avec Microsoft.Extensions.Logging
+- **Serilog.Sinks.Console** (6.0.0) : Sortie console avec formatage personnalisé
+- **Serilog.Sinks.File** (6.0.0) : Sortie fichier avec rotation quotidienne
 
 ## Gestion des erreurs
 
