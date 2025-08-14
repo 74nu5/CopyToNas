@@ -1,0 +1,34 @@
+{
+  "settings": {
+    "documentationRules": {
+      "documentationCulture": "en-US",
+      "xmlHeader": false,
+      "headerDecoration": ""
+    },
+    "indentation": {
+      "indentationSize": 4,
+      "tabSize": 4,
+      "useTabs": false
+    },
+    "orderingRules": {
+      "systemUsingDirectivesFirst": true,
+      "usingDirectivesPlacement": "insideNamespace"
+    },
+    "namingRules": {
+      "allowCommonHungarianPrefixes": true,
+      "allowedHungarianPrefixes": [
+        "as",
+        "do",
+        "id",
+        "if",
+        "in",
+        "is",
+        "my",
+        "no",
+        "on",
+        "to",
+        "ui"
+      ]
+    }
+  }
+}

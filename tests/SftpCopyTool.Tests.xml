@@ -1,0 +1,23 @@
+<?xml version="1.0"?>
+<doc>
+    <assembly>
+        <name>SftpCopyTool.Tests</name>
+    </assembly>
+    <members>
+        <member name="T:SftpCopyTool.Tests.SftpServiceTests">
+            <summary>Tests pour la classe SftpService.</summary>
+        </member>
+        <member name="M:SftpCopyTool.Tests.SftpServiceTests.Constructor_WithNullLogger_ThrowsArgumentNullException">
+            <summary>Teste que le constructeur lève une exception quand le logger est null.</summary>
+        </member>
+        <member name="M:SftpCopyTool.Tests.SftpServiceTests.Constructor_WithValidLogger_Succeeds">
+            <summary>Teste que le constructeur réussit avec un logger valide.</summary>
+        </member>
+        <member name="M:SftpCopyTool.Tests.SftpServiceTests.CopyFromSftpAsync_WithInvalidParameters_ThrowsArgumentException(System.String,System.String,System.String,System.String,System.String)">
+            <summary>Teste la validation des paramètres de CopyFromSftpAsync.</summary>
+        </member>
+        <member name="M:SftpCopyTool.Tests.SftpServiceTests.CopyFromSftpAsync_WithNegativePort_ThrowsArgumentOutOfRangeException">
+            <summary>Teste la validation du port négatif.</summary>
+        </member>
+    </members>
+</doc>

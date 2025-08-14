@@ -1,0 +1,33 @@
+<?xml version="1.0"?>
+<doc>
+    <assembly>
+        <name>SftpCopyTool</name>
+    </assembly>
+    <members>
+        <member name="T:SftpCopyTool.SftpService">
+            <summary>
+                Service de copie de fichiers via SFTP.
+            </summary>
+        </member>
+        <member name="M:SftpCopyTool.SftpService.#ctor(Microsoft.Extensions.Logging.ILogger{SftpCopyTool.SftpService})">
+            <summary>Initialise une nouvelle instance de la class <see cref="T:SftpCopyTool.SftpService"/>.</summary>
+            <param name="logger">Logger pour les opérations de logging.</param>
+            <exception cref="T:System.ArgumentNullException">Levée quand logger est null.</exception>
+        </member>
+        <member name="M:SftpCopyTool.SftpService.CopyFromSftpAsync(System.String,System.Int32,System.String,System.String,System.String,System.String,System.Boolean,System.Threading.CancellationToken)">
+            <summary>Copie des fichiers depuis un serveur SFTP vers le système local.</summary>
+            <param name="host">Adresse du serveur SFTP.</param>
+            <param name="port">Port du serveur SFTP.</param>
+            <param name="username">Nom d'utilisateur pour l'authentification.</param>
+            <param name="password">Mot de passe pour l'authentification.</param>
+            <param name="remotePath">Chemin distant à copier.</param>
+            <param name="localPath">Chemin local de destination.</param>
+            <param name="recursive">Indique si la copie doit être récursive pour les dossiers.</param>
+            <param name="cancellationToken">Token d'annulation pour l'opération asynchrone.</param>
+            <returns>Une tâche représentant l'opération asynchrone.</returns>
+            <exception cref="T:System.ArgumentException">Levée quand un paramètre requis est null ou vide.</exception>
+            <exception cref="T:System.IO.FileNotFoundException">Levée quand le chemin distant n'existe pas.</exception>
+            <exception cref="T:System.InvalidOperationException">Levée quand le chemin distant est un dossier mais recursive est false.</exception>
+        </member>
+    </members>
+</doc>
