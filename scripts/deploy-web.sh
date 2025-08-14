@@ -108,10 +108,19 @@ install_dotnet() {
 create_user() {
     log_info "Création de l'utilisateur système ${APP_USER}..."
 
+    # Créer le groupe s'il n'existe pas
+    if ! getent group "$APP_GROUP" > /dev/null 2>&1; then
+        groupadd --system "$APP_GROUP"
+        log_success "Groupe ${APP_GROUP} créé"
+    else
+        log_warning "Le groupe ${APP_GROUP} existe déjà"
+    fi
+
+    # Créer l'utilisateur s'il n'existe pas
     if id "$APP_USER" &>/dev/null; then
         log_warning "L'utilisateur ${APP_USER} existe déjà"
     else
-        useradd --system --no-create-home --shell /bin/false --group-name ${APP_GROUP} ${APP_USER}
+        useradd --system --no-create-home --shell /bin/false --gid "$APP_GROUP" "$APP_USER"
         log_success "Utilisateur ${APP_USER} créé"
     fi
 }
