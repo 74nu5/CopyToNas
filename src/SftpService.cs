@@ -16,59 +16,58 @@ public class SftpService
     public Task CopyFromSftpAsync(string host, int port, string username, string password, 
         string remotePath, string localPath, bool recursive)
     {
-        return Task.Run(() =>
+        _logger.LogInformation("🔌 Connexion au serveur SFTP {Host}:{Port}", host, port);
+
+        using var client = new SftpClient(host, port, username, password);
+        
+        try
         {
-            _logger.LogInformation("🔌 Connexion au serveur SFTP {Host}:{Port}", host, port);
+            client.Connect();
+            _logger.LogInformation("✅ Connexion établie avec succès");
 
-            using var client = new SftpClient(host, port, username, password);
-            
-            try
+            // Vérifier si le chemin distant existe
+            if (!client.Exists(remotePath))
             {
-                client.Connect();
-                _logger.LogInformation("✅ Connexion établie avec succès");
+                throw new FileNotFoundException($"Le chemin distant '{remotePath}' n'existe pas");
+            }
 
-                // Vérifier si le chemin distant existe
-                if (!client.Exists(remotePath))
+            var remoteItem = client.Get(remotePath);
+            
+            if (remoteItem.IsDirectory)
+            {
+                if (recursive)
                 {
-                    throw new FileNotFoundException($"Le chemin distant '{remotePath}' n'existe pas");
-                }
-
-                var remoteItem = client.Get(remotePath);
-                
-                if (remoteItem.IsDirectory)
-                {
-                    if (recursive)
-                    {
-                        _logger.LogInformation("📂 Copie récursive du dossier '{RemotePath}' vers '{LocalPath}'", remotePath, localPath);
-                        CopyDirectory(client, remotePath, localPath);
-                    }
-                    else
-                    {
-                        throw new InvalidOperationException($"Le chemin '{remotePath}' est un dossier. Utilisez --recursive pour copier les dossiers.");
-                    }
+                    _logger.LogInformation("📂 Copie récursive du dossier '{RemotePath}' vers '{LocalPath}'", remotePath, localPath);
+                    CopyDirectory(client, remotePath, localPath);
                 }
                 else
                 {
-                    _logger.LogInformation("📄 Copie du fichier '{RemotePath}' vers '{LocalPath}'", remotePath, localPath);
-                    CopyFile(client, remotePath, localPath);
+                    throw new InvalidOperationException($"Le chemin '{remotePath}' est un dossier. Utilisez --recursive pour copier les dossiers.");
                 }
+            }
+            else
+            {
+                _logger.LogInformation("📄 Copie du fichier '{RemotePath}' vers '{LocalPath}'", remotePath, localPath);
+                CopyFile(client, remotePath, localPath);
+            }
 
-                _logger.LogInformation("🎉 Copie terminée avec succès");
-            }
-            catch (Exception ex)
+            _logger.LogInformation("🎉 Copie terminée avec succès");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "❌ Erreur lors de la copie SFTP");
+            throw;
+        }
+        finally
+        {
+            if (client.IsConnected)
             {
-                _logger.LogError(ex, "❌ Erreur lors de la copie SFTP");
-                throw;
+                client.Disconnect();
+                _logger.LogInformation("🔌 Déconnexion du serveur SFTP");
             }
-            finally
-            {
-                if (client.IsConnected)
-                {
-                    client.Disconnect();
-                    _logger.LogInformation("🔌 Déconnexion du serveur SFTP");
-                }
-            }
-        });
+        }
+        
+        return Task.CompletedTask;
     }
 
     private void CopyFile(SftpClient client, string remoteFilePath, string localPath)
