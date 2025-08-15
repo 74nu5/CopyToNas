@@ -4,6 +4,162 @@
         <name>SftpCopyTool</name>
     </assembly>
     <members>
+        <member name="T:SftpCopyTool.FileProgress">
+            <summary>
+                Informations de progression pour les opérations de transfert de fichiers.
+            </summary>
+            <param name="BytesTransferred">Nombre d'octets transférés.</param>
+            <param name="TotalSize">Taille totale du fichier.</param>
+            <param name="FileName">Nom du fichier en cours de transfert.</param>
+        </member>
+        <member name="M:SftpCopyTool.FileProgress.#ctor(System.Int64,System.Int64,System.String)">
+            <summary>
+                Informations de progression pour les opérations de transfert de fichiers.
+            </summary>
+            <param name="BytesTransferred">Nombre d'octets transférés.</param>
+            <param name="TotalSize">Taille totale du fichier.</param>
+            <param name="FileName">Nom du fichier en cours de transfert.</param>
+        </member>
+        <member name="P:SftpCopyTool.FileProgress.BytesTransferred">
+            <summary>Nombre d'octets transférés.</summary>
+        </member>
+        <member name="P:SftpCopyTool.FileProgress.TotalSize">
+            <summary>Taille totale du fichier.</summary>
+        </member>
+        <member name="P:SftpCopyTool.FileProgress.FileName">
+            <summary>Nom du fichier en cours de transfert.</summary>
+        </member>
+        <member name="P:SftpCopyTool.FileProgress.PercentComplete">
+            <summary>Obtient le pourcentage de progression.</summary>
+        </member>
+        <member name="P:SftpCopyTool.FileProgress.Speed">
+            <summary>Obtient la vitesse de transfert estimée (octets par seconde).</summary>
+        </member>
+        <member name="P:SftpCopyTool.FileProgress.EstimatedTimeRemaining">
+            <summary>Obtient le temps restant estimé.</summary>
+        </member>
+        <member name="T:SftpCopyTool.ProgressTrackingStream">
+            <summary>
+                Stream wrapper qui suit la progression des opérations d'écriture avec reporting périodique.
+            </summary>
+        </member>
+        <member name="T:SftpCopyTool.ProgressInfo">
+            <summary>
+                Informations de progression pour les opérations de transfert de fichiers.
+            </summary>
+            <param name="BytesTransferred">Nombre d'octets transférés.</param>
+            <param name="TotalSize">Taille totale du fichier.</param>
+        </member>
+        <member name="M:SftpCopyTool.ProgressInfo.#ctor(System.Int64,System.Int64)">
+            <summary>
+                Informations de progression pour les opérations de transfert de fichiers.
+            </summary>
+            <param name="BytesTransferred">Nombre d'octets transférés.</param>
+            <param name="TotalSize">Taille totale du fichier.</param>
+        </member>
+        <member name="P:SftpCopyTool.ProgressInfo.BytesTransferred">
+            <summary>Nombre d'octets transférés.</summary>
+        </member>
+        <member name="P:SftpCopyTool.ProgressInfo.TotalSize">
+            <summary>Taille totale du fichier.</summary>
+        </member>
+        <member name="P:SftpCopyTool.ProgressInfo.PercentComplete">
+            <summary>Obtient le pourcentage de progression.</summary>
+        </member>
+        <member name="T:SftpCopyTool.ProgressStream">
+            <summary>
+                Stream wrapper qui suit la progression des opérations d'écriture.
+            </summary>
+        </member>
+        <member name="M:SftpCopyTool.ProgressStream.#ctor(System.IO.Stream,System.Int64,System.IProgress{SftpCopyTool.ProgressInfo})">
+            <summary>Initialise une nouvelle instance de la classe <see cref="T:SftpCopyTool.ProgressStream"/>.</summary>
+            <param name="baseStream">Stream de base à wrapper.</param>
+            <param name="totalSize">Taille totale attendue.</param>
+            <param name="progress">Interface de rapport de progression.</param>
+            <exception cref="T:System.ArgumentNullException">Levée quand baseStream est null.</exception>
+        </member>
+        <member name="P:SftpCopyTool.ProgressStream.CanRead">
+            <summary>Obtient une valeur indiquant si le stream peut être lu.</summary>
+        </member>
+        <member name="P:SftpCopyTool.ProgressStream.CanSeek">
+            <summary>Obtient une valeur indiquant si le stream peut être navigué.</summary>
+        </member>
+        <member name="P:SftpCopyTool.ProgressStream.CanWrite">
+            <summary>Obtient une valeur indiquant si le stream peut être écrit.</summary>
+        </member>
+        <member name="P:SftpCopyTool.ProgressStream.Length">
+            <summary>Obtient la longueur du stream.</summary>
+        </member>
+        <member name="P:SftpCopyTool.ProgressStream.Position">
+            <summary>Obtient ou définit la position dans le stream.</summary>
+        </member>
+        <member name="M:SftpCopyTool.ProgressStream.Flush">
+            <summary>Vide tous les tampons pour ce stream.</summary>
+        </member>
+        <member name="M:SftpCopyTool.ProgressStream.FlushAsync(System.Threading.CancellationToken)">
+            <summary>Vide de manière asynchrone tous les tampons pour ce stream.</summary>
+            <param name="cancellationToken">Token d'annulation.</param>
+            <returns>Tâche représentant l'opération asynchrone.</returns>
+        </member>
+        <member name="M:SftpCopyTool.ProgressStream.Read(System.Byte[],System.Int32,System.Int32)">
+            <summary>Lit des données depuis le stream.</summary>
+            <param name="buffer">Buffer de destination.</param>
+            <param name="offset">Offset dans le buffer.</param>
+            <param name="count">Nombre d'octets à lire.</param>
+            <returns>Nombre d'octets lus.</returns>
+        </member>
+        <member name="M:SftpCopyTool.ProgressStream.ReadAsync(System.Byte[],System.Int32,System.Int32,System.Threading.CancellationToken)">
+            <summary>Lit des données de manière asynchrone depuis le stream.</summary>
+            <param name="buffer">Buffer de destination.</param>
+            <param name="offset">Offset dans le buffer.</param>
+            <param name="count">Nombre d'octets à lire.</param>
+            <param name="cancellationToken">Token d'annulation.</param>
+            <returns>Tâche contenant le nombre d'octets lus.</returns>
+        </member>
+        <member name="M:SftpCopyTool.ProgressStream.ReadAsync(System.Memory{System.Byte},System.Threading.CancellationToken)">
+            <summary>Lit des données de manière asynchrone depuis le stream.</summary>
+            <param name="buffer">Buffer de destination.</param>
+            <param name="cancellationToken">Token d'annulation.</param>
+            <returns>Tâche contenant le nombre d'octets lus.</returns>
+        </member>
+        <member name="M:SftpCopyTool.ProgressStream.Write(System.Byte[],System.Int32,System.Int32)">
+            <summary>Écrit des données dans le stream.</summary>
+            <param name="buffer">Buffer source.</param>
+            <param name="offset">Offset dans le buffer.</param>
+            <param name="count">Nombre d'octets à écrire.</param>
+        </member>
+        <member name="M:SftpCopyTool.ProgressStream.WriteAsync(System.Byte[],System.Int32,System.Int32,System.Threading.CancellationToken)">
+            <summary>Écrit des données de manière asynchrone dans le stream.</summary>
+            <param name="buffer">Buffer source.</param>
+            <param name="offset">Offset dans le buffer.</param>
+            <param name="count">Nombre d'octets à écrire.</param>
+            <param name="cancellationToken">Token d'annulation.</param>
+            <returns>Tâche représentant l'opération asynchrone.</returns>
+        </member>
+        <member name="M:SftpCopyTool.ProgressStream.WriteAsync(System.ReadOnlyMemory{System.Byte},System.Threading.CancellationToken)">
+            <summary>Écrit des données de manière asynchrone dans le stream.</summary>
+            <param name="buffer">Buffer source.</param>
+            <param name="cancellationToken">Token d'annulation.</param>
+            <returns>Tâche représentant l'opération asynchrone.</returns>
+        </member>
+        <member name="M:SftpCopyTool.ProgressStream.Seek(System.Int64,System.IO.SeekOrigin)">
+            <summary>Définit la position dans le stream.</summary>
+            <param name="offset">Offset par rapport à l'origine.</param>
+            <param name="origin">Point de référence.</param>
+            <returns>Nouvelle position dans le stream.</returns>
+        </member>
+        <member name="M:SftpCopyTool.ProgressStream.SetLength(System.Int64)">
+            <summary>Définit la longueur du stream.</summary>
+            <param name="value">Nouvelle longueur.</param>
+        </member>
+        <member name="M:SftpCopyTool.ProgressStream.Dispose(System.Boolean)">
+            <summary>Libère les ressources utilisées par le stream.</summary>
+            <param name="disposing">Indique si les ressources managées doivent être libérées.</param>
+        </member>
+        <member name="M:SftpCopyTool.ProgressStream.DisposeAsync">
+            <summary>Libère de manière asynchrone les ressources utilisées par le stream.</summary>
+            <returns>Tâche représentant l'opération asynchrone.</returns>
+        </member>
         <member name="T:SftpCopyTool.SftpService">
             <summary>
                 Service de copie de fichiers via SFTP.

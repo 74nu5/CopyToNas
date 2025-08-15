@@ -115,15 +115,22 @@ public sealed class SftpService
         var attributes = await sftpClient.GetAttributesAsync(remoteFilePath, followLinks: true, cancellationToken);
         var totalSize = attributes?.Length ?? 0;
 
-        this.logger.LogInformation("⬇️ Téléchargement : {RemoteFile} -> {LocalFile} ({Size} octets)",
-            remoteFilePath, localFilePath, totalSize);
+        this.logger.LogInformation("⬇️ Téléchargement : {RemoteFile} -> {LocalFile} ({Size})",
+            remoteFilePath, localFilePath, FormatBytes(totalSize));
+
+        // Téléchargement avec suivi de progression
+        var startTime = DateTime.UtcNow;
 
         using var fileStream = File.Create(localFilePath);
+        using var progressStream = new ProgressTrackingStream(fileStream, fileName, totalSize, this.logger);
 
-        // Tmds.Ssh utilise DownloadFileAsync pour télécharger les fichiers
-        await sftpClient.DownloadFileAsync(remoteFilePath, fileStream, cancellationToken);
+        await sftpClient.DownloadFileAsync(remoteFilePath, progressStream, cancellationToken);
 
-        this.logger.LogInformation("✅ Fichier copié : {Size} octets", totalSize);
+        var duration = DateTime.UtcNow - startTime;
+        var speed = totalSize > 0 && duration.TotalSeconds > 0 ? totalSize / duration.TotalSeconds : 0;
+
+        this.logger.LogInformation("✅ Fichier copié : {Size} en {Duration:F1}s ({Speed}/s)",
+            FormatBytes(totalSize), duration.TotalSeconds, FormatBytes((long)speed));
     }
 
     private async Task CopyDirectoryAsync(SftpClient sftpClient, string remoteDirPath, string localDirPath, CancellationToken cancellationToken)
@@ -159,13 +166,21 @@ public sealed class SftpService
                 // Obtenir la taille du fichier
                 var totalSize = entryAttributes.Length;
 
-                this.logger.LogInformation("⬇️ Téléchargement : {RemoteFile} -> {LocalFile} ({Size} octets)",
-                    remoteItemPath, localItemPath, totalSize);
+                this.logger.LogInformation("⬇️ Téléchargement : {RemoteFile} -> {LocalFile} ({Size})",
+                    remoteItemPath, localItemPath, FormatBytes(totalSize));
+
+                var startTime = DateTime.UtcNow;
 
                 using var fileStream = File.Create(localItemPath);
-                await sftpClient.DownloadFileAsync(remoteItemPath, fileStream, cancellationToken);
+                using var progressStream = new ProgressTrackingStream(fileStream, entryName, totalSize, this.logger);
 
-                this.logger.LogInformation("✅ Fichier copié : {Size} octets", totalSize);
+                await sftpClient.DownloadFileAsync(remoteItemPath, progressStream, cancellationToken);
+
+                var duration = DateTime.UtcNow - startTime;
+                var speed = totalSize > 0 && duration.TotalSeconds > 0 ? totalSize / duration.TotalSeconds : 0;
+
+                this.logger.LogInformation("✅ Fichier copié : {Size} en {Duration:F1}s ({Speed}/s)",
+                    FormatBytes(totalSize), duration.TotalSeconds, FormatBytes((long)speed));
             }
         }
     }
