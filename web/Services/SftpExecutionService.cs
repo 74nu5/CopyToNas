@@ -2,6 +2,7 @@
 // Copyright (c) CopyToNas. Tous droits réservés.
 // </copyright>
 
+using System.Globalization;
 using Tmds.Ssh;
 
 namespace SftpCopyTool.Web.Services;
@@ -261,15 +262,103 @@ internal class ProgressLogger : ILogger<SftpService>
         // Reporter vers le logger standard aussi
         this.fallbackLogger.Log(logLevel, eventId, state, exception, formatter);
 
-        // Mise à jour de la progression basée sur le contenu du message
-        if (message.Contains("Progression :") && message.Contains("%"))
+        // Analyser le message pour extraire les informations de progression
+        this.ParseProgressMessage(message);
+    }
+
+    private void ParseProgressMessage(string message)
+    {
+        try
         {
-            // Extraire le pourcentage du message (ex: "Progression : 45.2%")
-            var percentMatch = System.Text.RegularExpressions.Regex.Match(message, @"(\d+\.?\d*)\s*%");
-            if (percentMatch.Success && double.TryParse(percentMatch.Groups[1].Value, out var percent))
+            // Détection du début de téléchargement d'un fichier
+            if (message.Contains("⬇️ Téléchargement :"))
             {
-                this.progressReporter.UpdateProgress(percent, message);
+                // Pattern : "⬇️ Téléchargement : /remote/path/file.txt -> C:\local\path\file.txt (15.2MB)"
+                var downloadMatch = System.Text.RegularExpressions.Regex.Match(
+                    message,
+                    @"⬇️ Téléchargement : .+? -> .+?([^\\]+) \(([^)]+)\)");
+
+                if (downloadMatch.Success)
+                {
+                    var fileName = downloadMatch.Groups[1].Value;
+                    var sizeText = downloadMatch.Groups[2].Value;
+                    var totalSize = this.ParseFileSize(sizeText);
+                    this.progressReporter.StartFile(fileName, totalSize);
+                }
             }
+            // Détection de la progression d'un fichier (très précise pour l'interface)
+            else if (message.Contains("📊") && message.Contains("%"))
+            {
+                // Pattern : "📊 filename.txt: 45.23% (5.2MB/15.2MB) - 2.1MB/s"
+                var progressMatch = System.Text.RegularExpressions.Regex.Match(
+                    message,
+                    @"📊 (.+?): (\d+\.?\d*)% \(([^/]+)/([^)]+)\) - (.+?)/s");
+
+                if (progressMatch.Success)
+                {
+                    var fileName = progressMatch.Groups[1].Value.Trim();
+                    var percentage = double.Parse(progressMatch.Groups[2].Value, CultureInfo.InvariantCulture);
+                    var transferred = this.ParseFileSize(progressMatch.Groups[3].Value);
+                    var speed = this.ParseFileSize(progressMatch.Groups[5].Value);
+
+                    this.progressReporter.UpdateFileProgress(transferred, speed);
+                }
+            }
+            // Les logs console 🎯 sont juste informatifs, on ne les traite pas pour la progression
+            else if (message.Contains("🎯 Console:"))
+            {
+                // Ces logs sont juste pour la console, on ne les traite pas
+            }
+            // Détection de la fin de transfert d'un fichier
+            else if (message.Contains("✅ Fichier copié :"))
+            {
+                this.progressReporter.CompleteFile();
+            }
+            // Mise à jour de la progression globale
+            else if (message.Contains("Progression :") && message.Contains("%"))
+            {
+                // Extraire le pourcentage du message (ex: "Progression : 45.2%")
+                var percentMatch = System.Text.RegularExpressions.Regex.Match(message, @"(\d+\.?\d*)\s*%");
+                if (percentMatch.Success && double.TryParse(percentMatch.Groups[1].Value, out var percent))
+                {
+                    this.progressReporter.UpdateProgress(percent, message);
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            // Ne pas laisser les erreurs de parsing casser l'opération principale
+            this.fallbackLogger.LogWarning(ex, "Erreur lors du parsing du message de progression: {Message}", message);
+        }
+    }
+
+    private long ParseFileSize(string sizeText)
+    {
+        try
+        {
+            // Accepter les virgules ET les points comme séparateurs décimaux
+            var match = System.Text.RegularExpressions.Regex.Match(sizeText.Trim(), @"^(\d+[,.]?\d*)\s*([KMGT]?B)$");
+            if (!match.Success)
+                return 0;
+
+            // Remplacer la virgule par un point pour le parsing en culture invariante
+            var numberText = match.Groups[1].Value.Replace(',', '.');
+            var numberPart = double.Parse(numberText, CultureInfo.InvariantCulture);
+            var unit = match.Groups[2].Value.ToUpperInvariant();
+
+            return unit switch
+            {
+                "TB" => (long)(numberPart * 1024 * 1024 * 1024 * 1024),
+                "GB" => (long)(numberPart * 1024 * 1024 * 1024),
+                "MB" => (long)(numberPart * 1024 * 1024),
+                "KB" => (long)(numberPart * 1024),
+                "B" => (long)numberPart,
+                _ => 0
+            };
+        }
+        catch
+        {
+            return 0;
         }
     }
 }

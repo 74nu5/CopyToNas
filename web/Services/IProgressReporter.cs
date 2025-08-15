@@ -22,6 +22,19 @@ public interface IProgressReporter
     /// <param name="message">Message de statut optionnel.</param>
     void UpdateProgress(double progress, string? message = null);
 
+    /// <summary>Démarre la progression d'un nouveau fichier.</summary>
+    /// <param name="fileName">Nom du fichier.</param>
+    /// <param name="totalSize">Taille totale du fichier.</param>
+    void StartFile(string fileName, long totalSize);
+
+    /// <summary>Met à jour la progression du fichier actuel.</summary>
+    /// <param name="bytesTransferred">Nombre d'octets transférés.</param>
+    /// <param name="speed">Vitesse de transfert en octets par seconde.</param>
+    void UpdateFileProgress(long bytesTransferred, double speed = 0);
+
+    /// <summary>Termine la progression du fichier actuel.</summary>
+    void CompleteFile();
+
     /// <summary>Ajoute un message de log.</summary>
     /// <param name="level">Niveau de log.</param>
     /// <param name="message">Message à logger.</param>
@@ -62,6 +75,58 @@ public class ProgressState
 
     /// <summary>Heure de fin de l'opération.</summary>
     public DateTime? EndTime { get; set; }
+
+    /// <summary>Informations sur le fichier en cours de traitement.</summary>
+    public FileProgressInfo? CurrentFile { get; set; }
+}
+
+/// <summary>Informations sur la progression d'un fichier individuel.</summary>
+public class FileProgressInfo
+{
+    /// <summary>Nom du fichier en cours de traitement.</summary>
+    public string FileName { get; set; } = string.Empty;
+
+    /// <summary>Pourcentage de progression du fichier (0-100).</summary>
+    public double Progress { get; set; }
+
+    /// <summary>Nombre d'octets transférés.</summary>
+    public long BytesTransferred { get; set; }
+
+    /// <summary>Taille totale du fichier en octets.</summary>
+    public long TotalSize { get; set; }
+
+    /// <summary>Vitesse de transfert en octets par seconde.</summary>
+    public double Speed { get; set; }
+
+    /// <summary>Temps restant estimé.</summary>
+    public TimeSpan? EstimatedTimeRemaining { get; set; }
+
+    /// <summary>Formatage des octets en unités lisibles.</summary>
+    /// <param name="bytes">Nombre d'octets.</param>
+    /// <returns>Représentation formatée.</returns>
+    public static string FormatBytes(long bytes)
+    {
+        string[] suffixes = ["B", "KB", "MB", "GB", "TB"];
+        int counter = 0;
+        decimal number = bytes;
+
+        while (Math.Round(number / 1024) >= 1)
+        {
+            number /= 1024;
+            counter++;
+        }
+
+        return $"{number:n1}{suffixes[counter]}";
+    }
+
+    /// <summary>Obtient le texte formaté des octets transférés.</summary>
+    public string FormattedBytesTransferred => FormatBytes(BytesTransferred);
+
+    /// <summary>Obtient le texte formaté de la taille totale.</summary>
+    public string FormattedTotalSize => FormatBytes(TotalSize);
+
+    /// <summary>Obtient le texte formaté de la vitesse.</summary>
+    public string FormattedSpeed => FormatBytes((long)Speed) + "/s";
 }
 
 /// <summary>Message de log avec niveau et timestamp.</summary>

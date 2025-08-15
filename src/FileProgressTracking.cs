@@ -87,20 +87,32 @@ internal sealed class ProgressTrackingStream : Stream
         _totalBytesWritten += bytesWritten;
         var percentage = _totalSize > 0 ? (double)_totalBytesWritten / _totalSize * 100 : 0;
 
-        // Reporter seulement tous les 5% pour éviter le spam de logs
-        if (percentage - _lastReportedPercentage >= 5.0 || percentage >= 100.0)
-        {
-            var elapsed = DateTime.UtcNow - _startTime;
-            var speed = elapsed.TotalSeconds > 0 ? _totalBytesWritten / elapsed.TotalSeconds : 0;
+        var elapsed = DateTime.UtcNow - _startTime;
+        var speed = elapsed.TotalSeconds > 0 ? _totalBytesWritten / elapsed.TotalSeconds : 0;
 
-            _logger.LogInformation("📊 {FileName}: {Percentage:F1}% ({Transferred}/{Total}) - {Speed}/s",
+        // Pour l'interface web : progression ultra-fréquente (tous les 0.01% ou après 8KB)
+        var significantProgressForUI = percentage - _lastReportedPercentage >= 0.01;
+        var significantDataForUI = bytesWritten >= 8 * 1024; // 8KB - très petits chunks
+
+        // Pour les logs console : seulement tous les 5%
+        var significantProgressForLogs = percentage - _lastReportedPercentage >= 5.0;
+
+        if (significantProgressForUI || significantDataForUI || percentage >= 100.0 || _lastReportedPercentage < 0)
+        {
+            // Progression en temps réel pour l'interface web (précision au millième)
+            _logger.LogInformation("📊 {FileName}: {Percentage:F3}% ({Transferred}/{Total}) - {Speed}/s",
                 _fileName, percentage, FormatBytes(_totalBytesWritten), FormatBytes(_totalSize), FormatBytes((long)speed));
+
+            // Log console visible seulement pour les étapes importantes
+            if (significantProgressForLogs || percentage >= 100.0 || _lastReportedPercentage < 0)
+            {
+                _logger.LogInformation("🎯 Console: {FileName} - {Percentage:F1}% completed",
+                    _fileName, percentage);
+            }
 
             _lastReportedPercentage = percentage;
         }
-    }
-
-    public override long Seek(long offset, SeekOrigin origin) => _baseStream.Seek(offset, origin);
+    }    public override long Seek(long offset, SeekOrigin origin) => _baseStream.Seek(offset, origin);
     public override void SetLength(long value) => _baseStream.SetLength(value);
 
     protected override void Dispose(bool disposing)

@@ -53,6 +53,65 @@ public class ProgressReporter : IProgressReporter
     }
 
     /// <inheritdoc/>
+    public void StartFile(string fileName, long totalSize)
+    {
+        lock (this.lockObject)
+        {
+            this.CurrentState.CurrentFile = new FileProgressInfo
+            {
+                FileName = fileName,
+                Progress = 0,
+                BytesTransferred = 0,
+                TotalSize = totalSize,
+                Speed = 0
+            };
+        }
+
+        this.OnProgressUpdate?.Invoke(this.CurrentState);
+    }
+
+    /// <inheritdoc/>
+    public void UpdateFileProgress(long bytesTransferred, double speed = 0)
+    {
+        lock (this.lockObject)
+        {
+            if (this.CurrentState.CurrentFile != null)
+            {
+                this.CurrentState.CurrentFile.BytesTransferred = bytesTransferred;
+                this.CurrentState.CurrentFile.Speed = speed;
+                this.CurrentState.CurrentFile.Progress = this.CurrentState.CurrentFile.TotalSize > 0
+                    ? (double)bytesTransferred / this.CurrentState.CurrentFile.TotalSize * 100
+                    : 0;
+
+                // Calculer le temps restant estimé si on a une vitesse
+                if (speed > 0)
+                {
+                    var remainingBytes = this.CurrentState.CurrentFile.TotalSize - bytesTransferred;
+                    this.CurrentState.CurrentFile.EstimatedTimeRemaining = TimeSpan.FromSeconds(remainingBytes / speed);
+                }
+            }
+        }
+
+        this.OnProgressUpdate?.Invoke(this.CurrentState);
+    }
+
+    /// <inheritdoc/>
+    public void CompleteFile()
+    {
+        lock (this.lockObject)
+        {
+            if (this.CurrentState.CurrentFile != null)
+            {
+                this.CurrentState.CurrentFile.Progress = 100;
+                this.CurrentState.CurrentFile.BytesTransferred = this.CurrentState.CurrentFile.TotalSize;
+                this.CurrentState.CurrentFile.EstimatedTimeRemaining = TimeSpan.Zero;
+            }
+        }
+
+        this.OnProgressUpdate?.Invoke(this.CurrentState);
+    }
+
+    /// <inheritdoc/>
     public void AddLogMessage(LogLevel level, string message)
     {
         lock (this.lockObject)

@@ -198,6 +198,46 @@
                                 </div>
                             </div>
 
+                            @* Barre de progression du fichier individuel *@
+                            @if (progressState.CurrentFile != null && !string.IsNullOrEmpty(progressState.CurrentFile.FileName))
+                            {
+                                <div class="mb-3">
+                                    <div class="d-flex justify-content-between align-items-center mb-1">
+                                        <small class="fw-bold text-muted">
+                                            <i class="fas fa-file"></i> @progressState.CurrentFile.FileName
+                                        </small>
+                                        <small class="text-muted">
+                                            @progressState.CurrentFile.FormattedBytesTransferred / @progressState.CurrentFile.FormattedTotalSize
+                                            @if (progressState.CurrentFile.Speed > 0)
+                                            {
+                                                <span> • @progressState.CurrentFile.FormattedSpeed</span>
+                                            }
+                                        </small>
+                                    </div>
+
+                                    <div class="progress" style="height: 20px;">
+                                        <div class="progress-bar bg-info progress-bar-striped @(isOperationRunning ? "progress-bar-animated" : "")"
+                                             role="progressbar"
+                                             style="width: @(progressState.CurrentFile.Progress)%"
+                                             aria-valuenow="@progressState.CurrentFile.Progress"
+                                             aria-valuemin="0"
+                                             aria-valuemax="100">
+                                            @progressState.CurrentFile.Progress.ToString("F1")%
+                                        </div>
+                                    </div>
+
+                                    @if (progressState.CurrentFile.EstimatedTimeRemaining.HasValue && progressState.CurrentFile.EstimatedTimeRemaining.Value.TotalSeconds > 1)
+                                    {
+                                        <div class="text-center mt-1">
+                                            <small class="text-muted">
+                                                <i class="fas fa-clock"></i>
+                                                Temps restant: @FormatTimeSpan(progressState.CurrentFile.EstimatedTimeRemaining.Value)
+                                            </small>
+                                        </div>
+                                    }
+                                </div>
+                            }
+
                             @if (!string.IsNullOrEmpty(progressState.CurrentMessage))
                             {
                                 <div class="alert alert-info mb-3" role="alert">
@@ -534,6 +574,22 @@
         // Sauvegarder automatiquement après sélection
         await SaveParametersAsync();
         StateHasChanged();
+    }
+
+    private string FormatTimeSpan(TimeSpan timeSpan)
+    {
+        if (timeSpan.TotalHours >= 1)
+        {
+            return $"{(int)timeSpan.TotalHours}h {timeSpan.Minutes}m {timeSpan.Seconds}s";
+        }
+        else if (timeSpan.TotalMinutes >= 1)
+        {
+            return $"{timeSpan.Minutes}m {timeSpan.Seconds}s";
+        }
+        else
+        {
+            return $"{timeSpan.Seconds}s";
+        }
     }
 
     private string GetElapsedTime()
