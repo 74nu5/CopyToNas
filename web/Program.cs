@@ -28,6 +28,7 @@ builder.Services.AddHealthChecks();
 // Enregistrement des services métier
 builder.Services.AddScoped<SftpService>();
 builder.Services.AddScoped<SftpExecutionService>();
+builder.Services.AddScoped<IFileExplorerService, FileExplorerService>();
 builder.Services.AddSingleton<IProgressReporter, ProgressReporter>();
 
 var app = builder.Build();

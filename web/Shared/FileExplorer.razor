@@ -1,0 +1,324 @@
+@using SftpCopyTool.Web.Data
+@using SftpCopyTool.Web.Services
+@inject IFileExplorerService FileExplorerService
+
+<div class="file-explorer">
+    <!-- Header avec chemin et actions -->
+    <div class="explorer-header d-flex align-items-center justify-content-between mb-3 p-3 bg-light rounded">
+        <div class="flex-grow-1">
+            <!-- Breadcrumb -->
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb mb-0">
+                    @foreach (var crumb in breadcrumbs)
+                    {
+                        @if (crumb.IsLast)
+                        {
+                            <li class="breadcrumb-item active" aria-current="page">@crumb.Name</li>
+                        }
+                        else
+                        {
+                            <li class="breadcrumb-item">
+                                <a href="#" @onclick="() => NavigateToPath(crumb.Path)" @onclick:preventDefault="true">
+                                    @crumb.Name
+                                </a>
+                            </li>
+                        }
+                    }
+                </ol>
+            </nav>
+        </div>
+
+        <div class="d-flex gap-2">
+            <!-- Input pour chemin manuel -->
+            <div class="input-group" style="width: 300px;">
+                <input type="text" @bind="manualPath" @onkeypress="HandleKeyPress"
+                       class="form-control form-control-sm" placeholder="Chemin..." />
+                <button class="btn btn-outline-secondary btn-sm" type="button" @onclick="NavigateToManualPath">
+                    <i class="fas fa-arrow-right"></i>
+                </button>
+            </div>
+
+            <!-- Bouton refresh -->
+            <button class="btn btn-outline-primary btn-sm" @onclick="RefreshDirectory" disabled="@isLoading">
+                <i class="fas fa-sync @(isLoading ? "fa-spin" : "")"></i>
+            </button>
+        </div>
+    </div>
+
+    <!-- Contenu -->
+    <div class="explorer-content">
+        @if (isLoading)
+        {
+            <div class="text-center p-4">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">Chargement...</span>
+                </div>
+                <div class="mt-2">Chargement du répertoire...</div>
+            </div>
+        }
+        else if (directoryContents.HasError)
+        {
+            <div class="alert alert-danger" role="alert">
+                <i class="fas fa-exclamation-triangle"></i>
+                @directoryContents.ErrorMessage
+            </div>
+        }
+        else
+        {
+            <!-- Tableau des fichiers -->
+            <div class="table-responsive">
+                <table class="table table-hover table-sm">
+                    <thead class="table-light">
+                        <tr>
+                            <th style="width: 40px;"></th>
+                            <th>Nom</th>
+                            <th style="width: 120px;">Taille</th>
+                            <th style="width: 180px;">Modifié</th>
+                            <th style="width: 100px;">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <!-- Dossier parent -->
+                        @if (!string.IsNullOrEmpty(directoryContents.ParentPath))
+                        {
+                            <tr class="cursor-pointer" @onclick="() => NavigateToPath(directoryContents.ParentPath)">
+                                <td><i class="fas fa-level-up-alt text-secondary"></i></td>
+                                <td><strong>..</strong> (Dossier parent)</td>
+                                <td>-</td>
+                                <td>-</td>
+                                <td></td>
+                            </tr>
+                        }
+
+                        <!-- Fichiers et dossiers -->
+                        @foreach (var item in directoryContents.Items)
+                        {
+                            <tr class="@(item.IsDirectory ? "cursor-pointer" : "")"
+                                @onclick="() => HandleItemClick(item)">
+                                <td><i class="@item.Icon"></i></td>
+                                <td>
+                                    <span class="@(item.IsDirectory ? "fw-bold" : "")">@item.Name</span>
+                                </td>
+                                <td>@(item.IsDirectory ? "-" : item.FormattedSize)</td>
+                                <td>@item.LastModified.ToString("dd/MM/yyyy HH:mm")</td>
+                                <td>
+                                    @if (item.IsDirectory)
+                                    {
+                                        <button class="btn btn-outline-primary btn-sm me-1"
+                                                @onclick="() => NavigateToPath(item.FullPath)"
+                                                @onclick:stopPropagation="true"
+                                                title="Ouvrir">
+                                            <i class="fas fa-folder-open"></i>
+                                        </button>
+                                        @if (AllowSelection)
+                                        {
+                                            <button class="btn btn-success btn-sm"
+                                                    @onclick="() => SelectPath(item.FullPath)"
+                                                    @onclick:stopPropagation="true"
+                                                    title="Sélectionner ce dossier">
+                                                <i class="fas fa-check"></i>
+                                            </button>
+                                        }
+                                    }
+                                    else if (AllowSelection)
+                                    {
+                                        <button class="btn btn-success btn-sm"
+                                                @onclick="() => SelectPath(item.FullPath)"
+                                                @onclick:stopPropagation="true"
+                                                title="Sélectionner ce fichier">
+                                            <i class="fas fa-check"></i>
+                                        </button>
+                                    }
+                                </td>
+                            </tr>
+                        }
+
+                        <!-- Message si aucun élément -->
+                        @if (!directoryContents.Items.Any())
+                        {
+                            <tr>
+                                <td colspan="5" class="text-center text-muted py-4">
+                                    <i class="fas fa-folder-open fa-2x mb-2"></i>
+                                    <br>
+                                    Ce dossier est vide
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Footer avec sélection actuelle -->
+            @if (AllowSelection && !string.IsNullOrEmpty(SelectedPath))
+            {
+                <div class="explorer-footer mt-3 p-3 bg-light rounded">
+                    <div class="d-flex align-items-center justify-content-between">
+                        <div>
+                            <strong>Sélection actuelle:</strong>
+                            <span class="text-primary">@SelectedPath</span>
+                        </div>
+                        <button class="btn btn-outline-secondary btn-sm" @onclick="ClearSelection">
+                            <i class="fas fa-times"></i> Effacer
+                        </button>
+                    </div>
+                </div>
+            }
+        }
+    </div>
+</div>
+
+<style>
+.file-explorer {
+    border: 1px solid #dee2e6;
+    border-radius: 0.375rem;
+    background: white;
+}
+
+.cursor-pointer {
+    cursor: pointer;
+}
+
+.cursor-pointer:hover {
+    background-color: #f8f9fa;
+}
+
+.breadcrumb-item a {
+    text-decoration: none;
+}
+
+.breadcrumb-item a:hover {
+    text-decoration: underline;
+}
+
+.table th {
+    border-top: none;
+    font-weight: 600;
+    color: #6c757d;
+}
+
+.explorer-header {
+    border-bottom: 1px solid #dee2e6;
+}
+
+.explorer-footer {
+    border-top: 1px solid #dee2e6;
+}
+</style>
+
+@code {
+    [Parameter] public bool IsRemote { get; set; } = false;
+    [Parameter] public string? InitialPath { get; set; }
+    [Parameter] public bool AllowSelection { get; set; } = true;
+    [Parameter] public string? SelectedPath { get; set; }
+    [Parameter] public EventCallback<string> SelectedPathChanged { get; set; }
+
+    // Paramètres SFTP (pour mode distant)
+    [Parameter] public string SftpHost { get; set; } = string.Empty;
+    [Parameter] public int SftpPort { get; set; } = 22;
+    [Parameter] public string SftpUsername { get; set; } = string.Empty;
+    [Parameter] public string SftpPassword { get; set; } = string.Empty;
+
+    private DirectoryContents directoryContents = new();
+    private List<PathBreadcrumb> breadcrumbs = new();
+    private bool isLoading = false;
+    private string manualPath = string.Empty;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var initialPath = InitialPath ?? (IsRemote ? "/" : Environment.GetFolderPath(Environment.SpecialFolder.UserProfile));
+        await LoadDirectory(initialPath);
+    }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (!string.IsNullOrEmpty(InitialPath) && InitialPath != directoryContents.CurrentPath)
+        {
+            await LoadDirectory(InitialPath);
+        }
+    }
+
+    private async Task LoadDirectory(string path)
+    {
+        if (isLoading) return;
+
+        isLoading = true;
+        StateHasChanged();
+
+        try
+        {
+            if (IsRemote)
+            {
+                if (string.IsNullOrEmpty(SftpHost) || string.IsNullOrEmpty(SftpUsername))
+                {
+                    directoryContents = new DirectoryContents
+                    {
+                        HasError = true,
+                        ErrorMessage = "Paramètres de connexion SFTP manquants"
+                    };
+                    return;
+                }
+
+                directoryContents = await FileExplorerService.GetRemoteDirectoryAsync(
+                    SftpHost, SftpPort, SftpUsername, SftpPassword, path);
+            }
+            else
+            {
+                directoryContents = FileExplorerService.GetLocalDirectory(path);
+            }
+
+            breadcrumbs = FileExplorerService.GetPathBreadcrumbs(directoryContents.CurrentPath, IsRemote);
+            manualPath = directoryContents.CurrentPath;
+        }
+        finally
+        {
+            isLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task NavigateToPath(string path)
+    {
+        await LoadDirectory(path);
+    }
+
+    private async Task NavigateToManualPath()
+    {
+        if (!string.IsNullOrWhiteSpace(manualPath))
+        {
+            await LoadDirectory(manualPath);
+        }
+    }
+
+    private async Task HandleKeyPress(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter")
+        {
+            await NavigateToManualPath();
+        }
+    }
+
+    private async Task RefreshDirectory()
+    {
+        await LoadDirectory(directoryContents.CurrentPath);
+    }
+
+    private async Task HandleItemClick(FileItem item)
+    {
+        if (item.IsDirectory)
+        {
+            await NavigateToPath(item.FullPath);
+        }
+    }
+
+    private async Task SelectPath(string path)
+    {
+        SelectedPath = path;
+        await SelectedPathChanged.InvokeAsync(path);
+    }
+
+    private async Task ClearSelection()
+    {
+        SelectedPath = string.Empty;
+        await SelectedPathChanged.InvokeAsync(string.Empty);
+    }
+}

@@ -1,0 +1,97 @@
+@using SftpCopyTool.Web.Data
+
+<!-- Modal -->
+<div class="modal fade @(IsVisible ? "show d-block" : "")" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="@(IsRemote ? "fas fa-cloud" : "fas fa-hdd")"></i>
+                    @Title
+                </h5>
+                <button type="button" class="btn-close" @onclick="CloseModal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-0">
+                @if (IsVisible)
+                {
+                    <FileExplorer IsRemote="@IsRemote"
+                                InitialPath="@InitialPath"
+                                AllowSelection="true"
+                                SelectedPath="@selectedPath"
+                                SelectedPathChanged="@OnPathSelected"
+                                SftpHost="@SftpHost"
+                                SftpPort="@SftpPort"
+                                SftpUsername="@SftpUsername"
+                                SftpPassword="@SftpPassword" />
+                }
+            </div>
+            <div class="modal-footer">
+                <div class="flex-grow-1 text-start">
+                    @if (!string.IsNullOrEmpty(selectedPath))
+                    {
+                        <small class="text-muted">
+                            <strong>Sélectionné:</strong> @selectedPath
+                        </small>
+                    }
+                </div>
+                <button type="button" class="btn btn-secondary" @onclick="CloseModal">
+                    <i class="fas fa-times"></i> Annuler
+                </button>
+                <button type="button" class="btn btn-primary" @onclick="ConfirmSelection" disabled="@string.IsNullOrEmpty(selectedPath)">
+                    <i class="fas fa-check"></i> Confirmer
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter] public bool IsVisible { get; set; } = false;
+    [Parameter] public EventCallback<bool> IsVisibleChanged { get; set; }
+    [Parameter] public string Title { get; set; } = "Explorateur de fichiers";
+    [Parameter] public bool IsRemote { get; set; } = false;
+    [Parameter] public string? InitialPath { get; set; }
+    [Parameter] public EventCallback<string> OnPathConfirmed { get; set; }
+
+    // Paramètres SFTP (pour mode distant)
+    [Parameter] public string SftpHost { get; set; } = string.Empty;
+    [Parameter] public int SftpPort { get; set; } = 22;
+    [Parameter] public string SftpUsername { get; set; } = string.Empty;
+    [Parameter] public string SftpPassword { get; set; } = string.Empty;
+
+    private string selectedPath = string.Empty;
+
+    protected override void OnParametersSet()
+    {
+        if (IsVisible && !string.IsNullOrEmpty(InitialPath))
+        {
+            selectedPath = InitialPath;
+        }
+        else if (!IsVisible)
+        {
+            selectedPath = string.Empty;
+        }
+    }
+
+    private Task OnPathSelected(string path)
+    {
+        selectedPath = path;
+        StateHasChanged();
+        return Task.CompletedTask;
+    }
+
+    private async Task CloseModal()
+    {
+        selectedPath = string.Empty;
+        await IsVisibleChanged.InvokeAsync(false);
+    }
+
+    private async Task ConfirmSelection()
+    {
+        if (!string.IsNullOrEmpty(selectedPath))
+        {
+            await OnPathConfirmed.InvokeAsync(selectedPath);
+            await CloseModal();
+        }
+    }
+}

@@ -59,13 +59,23 @@
                         <h5 class="text-secondary mb-3">📁 Chemins</h5>
                         <div class="mb-3">
                             <label class="form-label">Chemin distant (source)</label>
-                            <InputText @bind-Value="sftpParameters.RemotePath" class="form-control" placeholder="/home/user/documents" />
+                            <div class="input-group">
+                                <InputText @bind-Value="sftpParameters.RemotePath" class="form-control" placeholder="/home/user/documents" />
+                                <button type="button" class="btn btn-outline-secondary" @onclick="OpenRemoteExplorer" disabled="@isOperationRunning">
+                                    <i class="fas fa-folder-open"></i>
+                                </button>
+                            </div>
                             <ValidationMessage For="@(() => sftpParameters.RemotePath)" class="text-danger" />
                         </div>
 
                         <div class="mb-3">
                             <label class="form-label">Chemin local (destination)</label>
-                            <InputText @bind-Value="sftpParameters.LocalPath" class="form-control" placeholder="C:\Downloads\sftp" />
+                            <div class="input-group">
+                                <InputText @bind-Value="sftpParameters.LocalPath" class="form-control" placeholder="C:\Downloads\sftp" />
+                                <button type="button" class="btn btn-outline-secondary" @onclick="OpenLocalExplorer" disabled="@isOperationRunning">
+                                    <i class="fas fa-folder-open"></i>
+                                </button>
+                            </div>
                             <ValidationMessage For="@(() => sftpParameters.LocalPath)" class="text-danger" />
                         </div>
 
@@ -224,11 +234,36 @@
     </div>
 </div>
 
+<!-- Modals pour explorateurs de fichiers -->
+<FileExplorerModal IsVisible="@showRemoteExplorer"
+                   IsVisibleChanged="@((bool visible) => showRemoteExplorer = visible)"
+                   Title="📁 Explorateur distant - Choisir le dossier source"
+                   IsRemote="true"
+                   InitialPath="@sftpParameters.RemotePath"
+                   OnPathConfirmed="@OnRemotePathConfirmed"
+                   SftpHost="@sftpParameters.Host"
+                   SftpPort="@sftpParameters.Port"
+                   SftpUsername="@sftpParameters.Username"
+                   SftpPassword="@sftpParameters.Password" />
+
+<FileExplorerModal IsVisible="@showLocalExplorer"
+                   IsVisibleChanged="@((bool visible) => showLocalExplorer = visible)"
+                   Title="💽 Explorateur local - Choisir le dossier de destination"
+                   IsRemote="false"
+                   InitialPath="@sftpParameters.LocalPath"
+                   OnPathConfirmed="@OnLocalPathConfirmed" />
+
 @code {
     private SftpParameters sftpParameters = new();
     private ProgressState progressState = new();
     private bool isOperationRunning = false;
-    private CancellationTokenSource? cancellationTokenSource;    protected override void OnInitialized()
+    private CancellationTokenSource? cancellationTokenSource;
+
+    // États des modals explorateurs
+    private bool showRemoteExplorer = false;
+    private bool showLocalExplorer = false;
+
+    protected override void OnInitialized()
     {
         // S'abonner aux mises à jour de progression
         ProgressReporter.OnProgressUpdate += OnProgressUpdated;
@@ -357,6 +392,40 @@
             cancellationTokenSource?.Dispose();
             cancellationTokenSource = null;
         }
+    }
+
+    // Méthodes pour les explorateurs de fichiers
+    private void OpenRemoteExplorer()
+    {
+        // Vérifier que les paramètres de connexion sont renseignés
+        if (string.IsNullOrWhiteSpace(sftpParameters.Host) || string.IsNullOrWhiteSpace(sftpParameters.Username))
+        {
+            // On pourrait afficher un toast/alert ici
+            return;
+        }
+
+        showRemoteExplorer = true;
+    }
+
+    private void OpenLocalExplorer()
+    {
+        showLocalExplorer = true;
+    }
+
+    private Task OnRemotePathConfirmed(string selectedPath)
+    {
+        sftpParameters.RemotePath = selectedPath;
+        showRemoteExplorer = false;
+        StateHasChanged();
+        return Task.CompletedTask;
+    }
+
+    private Task OnLocalPathConfirmed(string selectedPath)
+    {
+        sftpParameters.LocalPath = selectedPath;
+        showLocalExplorer = false;
+        StateHasChanged();
+        return Task.CompletedTask;
     }
 
     private string GetElapsedTime()
