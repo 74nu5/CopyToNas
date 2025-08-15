@@ -1,6 +1,5 @@
 using SftpCopyTool.Web.Data;
-using Renci.SshNet;
-using Renci.SshNet.Sftp;
+using Tmds.Ssh;
 
 namespace SftpCopyTool.Web.Services;
 
@@ -29,15 +28,13 @@ public class FileExplorerService : IFileExplorerService
 
         try
         {
-            using var client = new SftpClient(host, port, username, password);
-            await Task.Run(() => client.Connect());
-
-            if (!client.IsConnected)
+            var settings = new SshClientSettings($"{username}@{host}:{port}")
             {
-                result.HasError = true;
-                result.ErrorMessage = "Impossible de se connecter au serveur SFTP";
-                return result;
-            }
+                Credentials = [new PasswordCredential(password)]
+            };
+
+            using var sshClient = new SshClient(settings);
+            await sshClient.ConnectAsync();
 
             // Normaliser le chemin
             var normalizedPath = string.IsNullOrWhiteSpace(path) ? "/" : path;
@@ -55,36 +52,43 @@ public class FileExplorerService : IFileExplorerService
                 result.ParentPath = parentPath;
             }
 
-            // Lister le contenu du répertoire
-            var items = await Task.Run(() => client.ListDirectory(normalizedPath));
+            // Ouvrir un client SFTP et lister le contenu du répertoire
+            using var sftpClient = await sshClient.OpenSftpClientAsync();
+
+            var items = new List<FileItem>();
+            await foreach (var (entryPath, attributes) in sftpClient.GetDirectoryEntriesAsync(normalizedPath))
+            {
+                var fileName = Path.GetFileName(entryPath);
+                if (fileName != "." && fileName != "..")
+                {
+                    var isDirectory = attributes.FileType == UnixFileType.Directory;
+                    items.Add(new FileItem
+                    {
+                        Name = fileName,
+                        FullPath = entryPath,
+                        IsDirectory = isDirectory,
+                        Size = isDirectory ? 0 : attributes.Length,
+                        LastModified = attributes.LastWriteTime.DateTime
+                    });
+                }
+            }
 
             result.Items = items
-                .Where(item => item.Name != "." && item.Name != "..")
-                .Select(item => new FileItem
-                {
-                    Name = item.Name,
-                    FullPath = item.FullName,
-                    IsDirectory = item.IsDirectory,
-                    Size = item.IsDirectory ? 0 : item.Length,
-                    LastModified = item.LastWriteTime
-                })
                 .OrderByDescending(item => item.IsDirectory)
                 .ThenBy(item => item.Name, StringComparer.OrdinalIgnoreCase)
                 .ToList();
-
-            client.Disconnect();
         }
-        catch (Renci.SshNet.Common.SftpPathNotFoundException ex)
-        {
-            _logger.LogError(ex, "Chemin SFTP introuvable {Path}", path);
-            result.HasError = true;
-            result.ErrorMessage = $"Chemin introuvable: {ex.Message}";
-        }
-        catch (Renci.SshNet.Common.SshException ex)
+        catch (SshException ex)
         {
             _logger.LogError(ex, "Erreur SSH lors de la lecture du répertoire distant {Path}", path);
             result.HasError = true;
-            result.ErrorMessage = $"Erreur de connexion SSH: {ex.Message}";
+            result.ErrorMessage = $"Erreur SSH: {ex.Message}";
+        }
+        catch (SftpException ex)
+        {
+            _logger.LogError(ex, "Erreur SFTP lors de la lecture du répertoire distant {Path}", path);
+            result.HasError = true;
+            result.ErrorMessage = $"Erreur SFTP: {ex.Message}";
         }
         catch (UnauthorizedAccessException ex)
         {

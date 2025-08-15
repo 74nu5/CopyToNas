@@ -2,6 +2,8 @@
 // Copyright (c) CopyToNas. Tous droits réservés.
 // </copyright>
 
+using Tmds.Ssh;
+
 namespace SftpCopyTool.Web.Services;
 
 /// <summary>Service d'exécution des opérations SFTP avec reporting de progression.</summary>
@@ -94,35 +96,37 @@ public class SftpExecutionService
             this.ValidateConnectionParameters(parameters);
 
             this.progressReporter.UpdateProgress(30, "🔗 Tentative de connexion...");
-
-            // Créer un service SFTP pour le test
-            var progressLogger = new ProgressLogger(this.progressReporter, this.logger);
-            var testSftp = new SftpService(progressLogger);
-
             this.progressReporter.UpdateProgress(50, "🔐 Authentification...");
 
-            // Tester la connexion en utilisant une méthode simple
-            using var client = new Renci.SshNet.SftpClient(parameters.Host, parameters.Port, parameters.Username, parameters.Password);
-            await Task.Run(() =>
+            // Tester la connexion en utilisant Tmds.Ssh
+            var settings = new SshClientSettings($"{parameters.Username}@{parameters.Host}:{parameters.Port}")
             {
-                client.Connect();
-                this.progressReporter.UpdateProgress(80, "📂 Vérification des permissions...");
+                Credentials = [new PasswordCredential(parameters.Password)]
+            };
 
-                // Test simple : lister le répertoire racine ou le répertoire distant
-                var testPath = string.IsNullOrWhiteSpace(parameters.RemotePath) ? "/" : parameters.RemotePath;
-                try
-                {
-                    var files = client.ListDirectory(testPath).Take(1).ToList();
-                    this.progressReporter.UpdateProgress(90, "📋 Test de lecture réussi");
-                }
-                catch (Exception ex)
-                {
-                    // Si on ne peut pas lire le répertoire, ce n'est pas forcément grave
-                    this.progressReporter.AddLogMessage(LogLevel.Warning, $"⚠️ Impossible de lire {testPath} : {ex.Message}");
-                }
+            using var sshClient = new SshClient(settings);
+            await sshClient.ConnectAsync(cancellationToken);
 
-                client.Disconnect();
-            }, cancellationToken);
+            this.progressReporter.UpdateProgress(80, "📂 Vérification des permissions...");
+
+            // Test simple : ouvrir un client SFTP et lister un répertoire
+            using var sftpClient = await sshClient.OpenSftpClientAsync(cancellationToken);
+            var testPath = string.IsNullOrWhiteSpace(parameters.RemotePath) ? "/" : parameters.RemotePath;
+
+            try
+            {
+                await foreach (var entry in sftpClient.GetDirectoryEntriesAsync(testPath))
+                {
+                    // Juste tester qu'on peut lire le premier élément
+                    break;
+                }
+                this.progressReporter.UpdateProgress(90, "📋 Test de lecture réussi");
+            }
+            catch (Exception ex)
+            {
+                // Si on ne peut pas lire le répertoire, ce n'est pas forcément grave
+                this.progressReporter.AddLogMessage(LogLevel.Warning, $"⚠️ Impossible de lire {testPath} : {ex.Message}");
+            }
 
             this.progressReporter.CompleteOperation(true, "✅ Test de connexion réussi !");
             return (true, "Connexion établie avec succès");

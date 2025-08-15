@@ -1,8 +1,7 @@
 namespace SftpCopyTool;
 
 using Microsoft.Extensions.Logging;
-
-using Renci.SshNet;
+using Tmds.Ssh;
 
 /// <summary>
 ///     Service de copie de fichiers via SFTP.
@@ -45,27 +44,29 @@ public sealed class SftpService
 
         this.logger.LogInformation("🔌 Connexion au serveur SFTP {Host}:{Port}", host, port);
 
-        using var client = new SftpClient(host, port, username, password);
+        var settings = new SshClientSettings($"{username}@{host}:{port}")
+        {
+            Credentials = [new PasswordCredential(password)],
+        };
+
+        using var sshClient = new SshClient(settings);
 
         try
         {
-            await Task.Run(client.Connect, cancellationToken);
+            await sshClient.ConnectAsync(cancellationToken);
             this.logger.LogInformation("✅ Connexion établie avec succès");
 
-            // Vérifier si le chemin distant existe
-            if (!client.Exists(remotePath))
-            {
-                throw new FileNotFoundException($"Le chemin distant '{remotePath}' n'existe pas");
-            }
+            using var sftpClient = await sshClient.OpenSftpClientAsync(cancellationToken);
 
-            var remoteItem = client.Get(remotePath);
+            // Vérifier si le chemin distant existe et obtenir ses propriétés
+            var remoteAttributes = await sftpClient.GetAttributesAsync(remotePath, followLinks: true, cancellationToken);
 
-            if (remoteItem.IsDirectory)
+            if (remoteAttributes?.FileType == UnixFileType.Directory)
             {
                 if (recursive)
                 {
                     this.logger.LogInformation("📂 Copie récursive du dossier '{RemotePath}' vers '{LocalPath}'", remotePath, localPath);
-                    await CopyDirectoryAsync(client, remotePath, localPath, cancellationToken);
+                    await CopyDirectoryAsync(sftpClient, remotePath, localPath, cancellationToken);
                 }
                 else
                 {
@@ -75,7 +76,7 @@ public sealed class SftpService
             else
             {
                 this.logger.LogInformation("📄 Copie du fichier '{RemotePath}' vers '{LocalPath}'", remotePath, localPath);
-                await CopyFileAsync(client, remotePath, localPath, cancellationToken);
+                await CopyFileAsync(sftpClient, remotePath, localPath, cancellationToken);
             }
 
             this.logger.LogInformation("🎉 Copie terminée avec succès");
@@ -85,17 +86,9 @@ public sealed class SftpService
             this.logger.LogError(ex, "❌ Erreur lors de la copie SFTP de {RemotePath}", remotePath);
             throw;
         }
-        finally
-        {
-            if (client.IsConnected)
-            {
-                client.Disconnect();
-                this.logger.LogInformation("🔌 Déconnexion du serveur SFTP");
-            }
-        }
     }
 
-    private async Task CopyFileAsync(SftpClient client, string remoteFilePath, string localPath, CancellationToken cancellationToken)
+    private async Task CopyFileAsync(SftpClient sftpClient, string remoteFilePath, string localPath, CancellationToken cancellationToken)
     {
         var fileName = Path.GetFileName(remoteFilePath);
         string localFilePath;
@@ -119,23 +112,21 @@ public sealed class SftpService
         }
 
         // Obtenir la taille du fichier pour calculer le pourcentage
-        var remoteFile = client.Get(remoteFilePath);
-        var totalSize = remoteFile.Length;
+        var attributes = await sftpClient.GetAttributesAsync(remoteFilePath, followLinks: true, cancellationToken);
+        var totalSize = attributes?.Length ?? 0;
 
         this.logger.LogInformation("⬇️ Téléchargement : {RemoteFile} -> {LocalFile} ({Size} octets)",
             remoteFilePath, localFilePath, totalSize);
 
         using var fileStream = File.Create(localFilePath);
 
-        // Téléchargement avec callback de progression
-        await Task.Run(() =>
-            client.DownloadFile(remoteFilePath, fileStream, CreateProgressCallback(totalSize)),
-            cancellationToken);
+        // Tmds.Ssh utilise DownloadFileAsync pour télécharger les fichiers
+        await sftpClient.DownloadFileAsync(remoteFilePath, fileStream, cancellationToken);
 
         this.logger.LogInformation("✅ Fichier copié : {Size} octets", totalSize);
     }
 
-    private async Task CopyDirectoryAsync(SftpClient client, string remoteDirPath, string localDirPath, CancellationToken cancellationToken)
+    private async Task CopyDirectoryAsync(SftpClient sftpClient, string remoteDirPath, string localDirPath, CancellationToken cancellationToken)
     {
         // Créer le dossier local s'il n'existe pas
         if (!Directory.Exists(localDirPath))
@@ -145,79 +136,38 @@ public sealed class SftpService
         }
 
         // Lister le contenu du dossier distant
-        var remoteFiles = client.ListDirectory(remoteDirPath);
-
-        foreach (var remoteFile in remoteFiles)
+        await foreach (var (entryPath, entryAttributes) in sftpClient.GetDirectoryEntriesAsync(remoteDirPath))
         {
             cancellationToken.ThrowIfCancellationRequested();
 
+            var entryName = Path.GetFileName(entryPath);
+
             // Ignorer les entrées . et ..
-            if (remoteFile.Name is "." or "..")
+            if (entryName is "." or "..")
                 continue;
 
-            var remoteItemPath = $"{remoteDirPath.TrimEnd('/')}/{remoteFile.Name}";
-            var localItemPath = Path.Combine(localDirPath, remoteFile.Name);
+            var remoteItemPath = entryPath;
+            var localItemPath = Path.Combine(localDirPath, entryName);
 
-            if (remoteFile.IsDirectory)
+            if (entryAttributes.FileType == UnixFileType.Directory)
             {
                 this.logger.LogInformation("📂 Traitement du dossier : {RemoteDir}", remoteItemPath);
-                await CopyDirectoryAsync(client, remoteItemPath, localItemPath, cancellationToken);
+                await CopyDirectoryAsync(sftpClient, remoteItemPath, localItemPath, cancellationToken);
             }
-            else if (remoteFile.IsRegularFile)
+            else if (entryAttributes.FileType == UnixFileType.RegularFile)
             {
-                // Obtenir la taille du fichier pour calculer le pourcentage
-                var totalSize = remoteFile.Length;
+                // Obtenir la taille du fichier
+                var totalSize = entryAttributes.Length;
 
                 this.logger.LogInformation("⬇️ Téléchargement : {RemoteFile} -> {LocalFile} ({Size} octets)",
                     remoteItemPath, localItemPath, totalSize);
 
                 using var fileStream = File.Create(localItemPath);
-
-                // Téléchargement avec callback de progression
-                await Task.Run(() =>
-                    client.DownloadFile(remoteItemPath, fileStream, CreateProgressCallback(totalSize)),
-                    cancellationToken);
+                await sftpClient.DownloadFileAsync(remoteItemPath, fileStream, cancellationToken);
 
                 this.logger.LogInformation("✅ Fichier copié : {Size} octets", totalSize);
             }
         }
-    }
-
-    private Action<ulong> CreateProgressCallback(long totalSize)
-    {
-        // Variables pour le suivi de progression (closure)
-        long lastReportedBytes = 0;
-        var lastProgressTime = DateTime.Now;
-
-        return (ulong bytesDownloaded) =>
-        {
-            var now = DateTime.Now;
-            var downloaded = (long)bytesDownloaded;
-
-            // Mettre à jour la progression toutes les 500ms ou tous les 10%
-            var timeDiff = now - lastProgressTime;
-            var byteDiff = downloaded - lastReportedBytes;
-            var percentageDiff = totalSize > 0 ? (byteDiff * 100.0 / totalSize) : 0;
-
-            if (timeDiff.TotalMilliseconds >= 500 || percentageDiff >= 10 || downloaded == totalSize)
-            {
-                if (totalSize > 0)
-                {
-                    var percentage = (downloaded * 100.0 / totalSize);
-                    var speed = byteDiff > 0 && timeDiff.TotalSeconds > 0 ?
-                        (long)(byteDiff / timeDiff.TotalSeconds) : 0;
-
-                    this.logger.LogInformation("📊 Progression : {Percentage:F1}% ({Downloaded}/{Total}) - {Speed}/s",
-                        percentage,
-                        FormatBytes(downloaded),
-                        FormatBytes(totalSize),
-                        FormatBytes(speed));
-                }
-
-                lastReportedBytes = downloaded;
-                lastProgressTime = now;
-            }
-        };
     }
 
     private static string FormatBytes(long bytes)
