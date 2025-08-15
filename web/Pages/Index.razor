@@ -1,19 +1,27 @@
 ﻿@page "/"
 @using SftpCopyTool.Web.Services
+@using SftpCopyTool.Web.Data
 @implements IDisposable
 @inject SftpExecutionService SftpExecutionService
 @inject IProgressReporter ProgressReporter
+@inject ILocalStorageService LocalStorage
 
 <PageTitle>SFTP Copy Tool</PageTitle>
 
 <div class="container-fluid">
     <div class="row">
         <div class="col-12">
-            <h1 class="display-4 text-primary mb-4">
+            <h1 class="display-4 text-primary mb-2">
                 <i class="fas fa-cloud-download-alt"></i>
                 SFTP Copy Tool
             </h1>
-            <p class="lead">Interface graphique pour copier des fichiers via SFTP avec suivi en temps réel de la progression.</p>
+            <p class="lead mb-2">Interface graphique pour copier des fichiers via SFTP avec suivi en temps réel de la progression.</p>
+            <div class="mb-3">
+                <small class="text-muted">
+                    <i class="fas fa-save"></i>
+                    Vos paramètres sont automatiquement sauvegardés dans votre navigateur
+                </small>
+            </div>
         </div>
     </div>
 
@@ -33,12 +41,17 @@
                         <div class="row mb-3">
                             <div class="col-md-8">
                                 <label class="form-label">Serveur SFTP</label>
-                                <InputText @bind-Value="sftpParameters.Host" class="form-control" placeholder="ex: sftp.example.com" />
+                                <InputText @bind-Value="sftpParameters.Host"
+                                           @bind-Value:after="OnParameterChangedAsync"
+                                           class="form-control"
+                                           placeholder="ex: sftp.example.com" />
                                 <ValidationMessage For="@(() => sftpParameters.Host)" class="text-danger" />
                             </div>
                             <div class="col-md-4">
                                 <label class="form-label">Port</label>
-                                <InputNumber @bind-Value="sftpParameters.Port" class="form-control" />
+                                <InputNumber @bind-Value="sftpParameters.Port"
+                                             @bind-Value:after="OnParameterChangedAsync"
+                                             class="form-control" />
                                 <ValidationMessage For="@(() => sftpParameters.Port)" class="text-danger" />
                             </div>
                         </div>
@@ -46,12 +59,16 @@
                         <div class="row mb-3">
                             <div class="col-md-6">
                                 <label class="form-label">Nom d'utilisateur</label>
-                                <InputText @bind-Value="sftpParameters.Username" class="form-control" placeholder="votre-username" />
+                                <InputText @bind-Value="sftpParameters.Username"
+                                           @bind-Value:after="OnParameterChangedAsync"
+                                           class="form-control"
+                                           placeholder="votre-username" />
                                 <ValidationMessage For="@(() => sftpParameters.Username)" class="text-danger" />
                             </div>
                             <div class="col-md-6">
                                 <label class="form-label">Mot de passe</label>
                                 <input type="password" @bind="sftpParameters.Password" class="form-control" placeholder="votre-mot-de-passe" />
+                                <small class="text-muted">🔒 Non sauvegardé par sécurité</small>
                             </div>
                         </div>
 
@@ -60,7 +77,10 @@
                         <div class="mb-3">
                             <label class="form-label">Chemin distant (source)</label>
                             <div class="input-group">
-                                <InputText @bind-Value="sftpParameters.RemotePath" class="form-control" placeholder="/home/user/documents" />
+                                <InputText @bind-Value="sftpParameters.RemotePath"
+                                           @bind-Value:after="OnParameterChangedAsync"
+                                           class="form-control"
+                                           placeholder="/home/user/documents" />
                                 <button type="button" class="btn btn-outline-secondary" @onclick="OpenRemoteExplorer" disabled="@isOperationRunning">
                                     <i class="fas fa-folder-open"></i>
                                 </button>
@@ -71,7 +91,10 @@
                         <div class="mb-3">
                             <label class="form-label">Chemin local (destination)</label>
                             <div class="input-group">
-                                <InputText @bind-Value="sftpParameters.LocalPath" class="form-control" placeholder="C:\Downloads\sftp" />
+                                <InputText @bind-Value="sftpParameters.LocalPath"
+                                           @bind-Value:after="OnParameterChangedAsync"
+                                           class="form-control"
+                                           placeholder="C:\Downloads\sftp" />
                                 <button type="button" class="btn btn-outline-secondary" @onclick="OpenLocalExplorer" disabled="@isOperationRunning">
                                     <i class="fas fa-folder-open"></i>
                                 </button>
@@ -84,7 +107,9 @@
                         <div class="row mb-3">
                             <div class="col-md-6">
                                 <div class="form-check">
-                                    <InputCheckbox @bind-Value="sftpParameters.Recursive" class="form-check-input" id="recursive" />
+                                    <InputCheckbox @bind-Value="sftpParameters.Recursive"
+                                                   @bind-Value:after="OnParameterChangedAsync"
+                                                   class="form-check-input" id="recursive" />
                                     <label class="form-check-label" for="recursive">
                                         Copie récursive (dossiers)
                                     </label>
@@ -92,7 +117,9 @@
                             </div>
                             <div class="col-md-6">
                                 <div class="form-check">
-                                    <InputCheckbox @bind-Value="sftpParameters.EnableFileLogging" class="form-check-input" id="fileLogging" />
+                                    <InputCheckbox @bind-Value="sftpParameters.EnableFileLogging"
+                                                   @bind-Value:after="OnParameterChangedAsync"
+                                                   class="form-check-input" id="fileLogging" />
                                     <label class="form-check-label" for="fileLogging">
                                         Logs dans fichier
                                     </label>
@@ -102,7 +129,9 @@
 
                         <div class="mb-3">
                             <label class="form-label">Niveau de logging</label>
-                            <InputSelect @bind-Value="sftpParameters.LogLevel" class="form-select">
+                            <InputSelect @bind-Value="sftpParameters.LogLevel"
+                                         @bind-Value:after="OnParameterChangedAsync"
+                                         class="form-select">
                                 <option value="Verbose">Verbose</option>
                                 <option value="Debug">Debug</option>
                                 <option value="Information">Information</option>
@@ -113,6 +142,10 @@
 
                         <!-- Actions -->
                         <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                            <button type="button" @onclick="ClearSavedData" class="btn btn-outline-warning me-md-2" disabled="@isOperationRunning" title="Effacer les données sauvegardées">
+                                <i class="fas fa-trash-alt"></i> Effacer sauvegarde
+                            </button>
+
                             <button type="button" @onclick="ResetForm" class="btn btn-outline-secondary me-md-2" disabled="@isOperationRunning">
                                 <i class="fas fa-undo"></i> Réinitialiser
                             </button>
@@ -263,12 +296,19 @@
     private bool showRemoteExplorer = false;
     private bool showLocalExplorer = false;
 
-    protected override void OnInitialized()
+    // Constantes pour le localStorage
+    private const string STORAGE_KEY = "sftpcopy-parameters";
+    private const string LAST_FORM_UPDATE_KEY = "sftpcopy-last-update";
+
+    protected override async Task OnInitializedAsync()
     {
         // S'abonner aux mises à jour de progression
         ProgressReporter.OnProgressUpdate += OnProgressUpdated;
         progressState = ProgressReporter.CurrentState;
         isOperationRunning = progressState.IsRunning;
+
+        // Charger les paramètres sauvegardés
+        await LoadSavedParametersAsync();
     }
 
     private void OnProgressUpdated(ProgressState newState)
@@ -283,6 +323,9 @@
     {
         if (isOperationRunning)
             return;
+
+        // Sauvegarder les paramètres avant de démarrer l'opération
+        await SaveParametersAsync();
 
         try
         {
@@ -312,10 +355,20 @@
         cancellationTokenSource?.Cancel();
     }
 
-    private void ResetForm()
+    private async Task ResetForm()
     {
         sftpParameters = new SftpParameters();
         ProgressReporter.Reset();
+
+        // Effacer les données sauvegardées
+        await ClearSavedParametersAsync();
+    }
+
+    private async Task ClearSavedData()
+    {
+        await ClearSavedParametersAsync();
+        // Optionnel : afficher une confirmation visuelle
+        StateHasChanged();
     }
 
     private void ClearLogs()
@@ -394,6 +447,57 @@
         }
     }
 
+    // Méthodes de gestion du localStorage
+    private async Task LoadSavedParametersAsync()
+    {
+        try
+        {
+            var savedParams = await LocalStorage.GetItemAsync<SavedSftpParameters>(STORAGE_KEY);
+            if (savedParams != null)
+            {
+                sftpParameters.ApplyFrom(savedParams);
+                StateHasChanged();
+            }
+        }
+        catch (Exception)
+        {
+            // Ignorer les erreurs de chargement
+        }
+    }
+
+    private async Task SaveParametersAsync()
+    {
+        try
+        {
+            var savedParams = sftpParameters.ToSaved();
+            await LocalStorage.SetItemAsync(STORAGE_KEY, savedParams);
+            await LocalStorage.SetItemAsync(LAST_FORM_UPDATE_KEY, DateTime.Now);
+        }
+        catch (Exception)
+        {
+            // Ignorer les erreurs de sauvegarde
+        }
+    }
+
+    private async Task ClearSavedParametersAsync()
+    {
+        try
+        {
+            await LocalStorage.RemoveItemAsync(STORAGE_KEY);
+            await LocalStorage.RemoveItemAsync(LAST_FORM_UPDATE_KEY);
+        }
+        catch (Exception)
+        {
+            // Ignorer les erreurs
+        }
+    }
+
+    // Sauvegarde automatique lors des modifications
+    private async Task OnParameterChangedAsync()
+    {
+        await SaveParametersAsync();
+    }
+
     // Méthodes pour les explorateurs de fichiers
     private void OpenRemoteExplorer()
     {
@@ -412,20 +516,24 @@
         showLocalExplorer = true;
     }
 
-    private Task OnRemotePathConfirmed(string selectedPath)
+    private async Task OnRemotePathConfirmed(string selectedPath)
     {
         sftpParameters.RemotePath = selectedPath;
         showRemoteExplorer = false;
+
+        // Sauvegarder automatiquement après sélection
+        await SaveParametersAsync();
         StateHasChanged();
-        return Task.CompletedTask;
     }
 
-    private Task OnLocalPathConfirmed(string selectedPath)
+    private async Task OnLocalPathConfirmed(string selectedPath)
     {
         sftpParameters.LocalPath = selectedPath;
         showLocalExplorer = false;
+
+        // Sauvegarder automatiquement après sélection
+        await SaveParametersAsync();
         StateHasChanged();
-        return Task.CompletedTask;
     }
 
     private string GetElapsedTime()
